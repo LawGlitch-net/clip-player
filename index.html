@@ -28,2145 +28,1166 @@
   --radius:    12px;
   --radius-sm: 8px;
   --font-ui:   system-ui, 'Segoe UI', sans-serif;
-  --font-mono: 'Courier New', monospace;
-  --shadow:    0 4px 24px rgba(0,0,0,0.5);
-  --transition: 0.18s ease;
+  --shadow:    0 10px 30px rgba(0,0,0,0.5);
+  --header-h:  56px;
+  --footer-h:  76px;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body {
-  height: 100%;
-  background: var(--bg);
+/* ── Reset & Base ────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: var(--bg);
   color: var(--txt);
   font-family: var(--font-ui);
-  font-size: 15px;
-  -webkit-tap-highlight-color: transparent;
-  overflow-x: hidden;
-}
-
-/* ── LAYOUT ── */
-.app {
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 0 0 env(safe-area-inset-bottom, 16px);
 }
 
-/* ── HEADER ── */
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-header h1 {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  color: var(--txt);
-}
-header h1 span { color: var(--accent); }
-.header-actions { display: flex; gap: 8px; }
-
-/* ── TAB NAVIGATION ── */
-.tabs {
-  display: flex;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 53px;
-  z-index: 99;
-}
-.tab-btn {
-  flex: 1;
-  padding: 11px 8px;
+button {
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--txt-dim);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
-  transition: color var(--transition), border-color var(--transition);
-}
-.tab-btn.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-/* ── TAB CONTENT ── */
-.tab-pane { display: none; padding: 16px; }
-.tab-pane.active { display: block; }
-
-/* ── PLAYER PANEL ── */
-#player-container {
-  position: relative;
-  width: 100%;
-  background: #000;
-  border-radius: var(--radius);
-  overflow: hidden;
-  margin-bottom: 14px;
-  aspect-ratio: 16/9;
-}
-/* The iframe is sized slightly TALLER than the container so the YouTube
-   control bar (which appears at the very bottom of the iframe) is
-   clipped out of view — even when controls:0 still flickers briefly on seek. */
-#yt-player {
-  width: 100%;
-  height: calc(100% + 48px);
-  display: block;
-  margin-top: -0px;
-  pointer-events: none; /* all taps are handled by our custom overlays */
-}
-
-/* ── IDLE OVERLAY (shown only before playback starts / after queue done) ── */
-#player-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(13,15,20,0.82);
-  z-index: 10;
-  transition: opacity 0.2s;
-}
-#player-overlay.hidden {
-  opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
-}
-.idle-msg {
-  text-align: center;
-  color: var(--txt-dim);
-  padding: 24px;
-}
-.idle-msg svg { margin-bottom: 12px; opacity: 0.4; }
-.idle-msg p { font-size: 14px; }
-
-/* ── PLAYBACK TOUCH OVERLAY ──────────────────────────────────────────────
-   Sits above the iframe at all times during an active queue.
-   While PLAYING   → fully transparent, pointer-events:none  (invisible, non-blocking)
-   While PAUSED    → dim scrim + Prev/Resume/Next buttons appear
-   This ensures the YouTube iframe never receives any direct touch events,
-   so its own control bar (play button, seek bar, gear) NEVER shows up.
-─────────────────────────────────────────────────────────────────────── */
-#playback-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 11;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  background: transparent;
-  pointer-events: none; /* playing state: completely transparent to touches */
-  transition: background 0.2s;
-}
-#playback-overlay.paused {
-  background: rgba(13,15,20,0.60);
-  pointer-events: all; /* paused state: capture all taps */
-}
-#playback-overlay.hidden {
-  display: none;
-}
-
-/* Prev/Resume/Next row inside the playback overlay */
-.po-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  opacity: 0;
-  transform: scale(0.88);
-  transition: opacity 0.2s, transform 0.2s;
-  pointer-events: none;
-}
-#playback-overlay.paused .po-controls {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: all;
-}
-.po-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255,255,255,0.12);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #fff;
-  font-size: 22px;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.12s;
-  -webkit-tap-highlight-color: transparent;
-}
-.po-btn:active { background: rgba(255,255,255,0.25); transform: scale(0.92); }
-.po-btn.po-resume {
-  width: 72px; height: 72px;
-  font-size: 28px;
-  background: var(--accent);
-  color: #000;
-}
-.po-btn.po-resume:active { background: var(--accent2); }
-.po-btn:disabled { opacity: 0.3; pointer-events: none; }
-
-/* Clip counter shown in the pause overlay */
-.po-counter {
-  margin-top: 18px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: rgba(255,255,255,0.5);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-#playback-overlay.paused .po-counter { opacity: 1; }
-
-/* ── CLIP PROGRESS BAR (tape reel) ── */
-.clip-progress-track {
-  width: 100%;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  margin-bottom: 14px;
-  overflow: hidden;
-}
-.clip-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent2), var(--accent));
-  border-radius: 2px;
-  width: 0%;
-  transition: width 0.5s linear;
-}
-
-/* ── NOW PLAYING INFO ── */
-.now-playing-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 12px;
-}
-.npc-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-.npc-badge {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--accent);
-  opacity: 0.8;
-}
-.npc-count { font-size: 12px; color: var(--txt-dim); }
-.npc-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--txt);
-  margin-bottom: 10px;
-  line-height: 1.35;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-.npc-times {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.npc-time-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.npc-time-label {
-  font-size: 10px;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--txt-dim);
-}
-.npc-time-value {
-  font-family: var(--font-mono);
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--txt);
-}
-.npc-time-value.countdown { color: var(--amber); }
-.npc-time-value.current { color: var(--accent); }
-
-/* ── STATUS BADGE ── */
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  min-height: 24px;
-}
-.status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--txt-dim);
-  flex-shrink: 0;
-}
-.status-dot.playing  { background: var(--success); animation: pulse 1.2s infinite; }
-.status-dot.paused   { background: var(--amber); }
-.status-dot.buffering{ background: var(--accent); animation: pulse 0.6s infinite; }
-.status-dot.error    { background: var(--danger); }
-@keyframes pulse {
-  0%,100% { opacity: 1; }
-  50%      { opacity: 0.35; }
-}
-.status-text { font-size: 12px; color: var(--txt-dim); }
-
-/* ── NEXT UP CARD ── */
-.next-up-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.next-up-card.hidden { display: none; }
-.next-label {
-  font-size: 10px;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--txt-dim);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.next-title {
-  font-size: 13px;
-  color: var(--txt);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* ── CONTROLS ── */
-.controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.controls-row2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px 10px;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition);
-  user-select: none;
-  white-space: nowrap;
-  -webkit-user-select: none;
-}
-.btn:active { transform: scale(0.96); }
-.btn:disabled { opacity: 0.38; pointer-events: none; }
-
-.btn-primary  { background: var(--accent);  color: #000; }
-.btn-secondary{ background: var(--surface); color: var(--txt); border: 1px solid var(--border); }
-.btn-danger   { background: var(--danger);  color: #fff; }
-.btn-amber    { background: var(--amber);   color: #000; }
-.btn-ghost    { background: transparent;    color: var(--txt-dim); border: 1px solid var(--border); }
-.btn-sm       { padding: 8px 12px; font-size: 12px; }
-.btn-icon     { padding: 8px; width: 36px; height: 36px; border-radius: 50%; }
-
-/* ── QUEUE TAB ── */
-.queue-toolbar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-.queue-empty {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--txt-dim);
-}
-.queue-empty svg { opacity: 0.25; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
-.queue-empty p { font-size: 14px; }
-
-/* ── CLIP ITEM ── */
-.clip-list { display: flex; flex-direction: column; gap: 10px; }
-.clip-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: border-color var(--transition);
-}
-.clip-item.active-clip { border-color: var(--accent); }
-.clip-item.dragging { opacity: 0.5; }
-.clip-item.drag-over { border-color: var(--accent2); border-style: dashed; }
-
-.clip-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 12px 10px;
-}
-.clip-num {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--txt-dim);
-  width: 22px;
-  flex-shrink: 0;
-  text-align: center;
-}
-.clip-active-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse 1.2s infinite;
-  flex-shrink: 0;
-  display: none;
-}
-.active-clip .clip-active-dot { display: block; }
-.active-clip .clip-num { display: none; }
-
-.clip-title-area { flex: 1; min-width: 0; }
-.clip-video-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--txt);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.clip-url-short {
-  font-size: 11px;
-  color: var(--txt-dim);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-}
-.clip-ts {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--txt-dim);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.clip-actions {
-  display: flex;
-  gap: 6px;
-  padding: 0 12px 12px;
-}
-.clip-drag-handle {
-  cursor: grab;
-  color: var(--txt-dim);
-  padding: 4px;
-  line-height: 0;
-  touch-action: none;
-}
-.clip-drag-handle:active { cursor: grabbing; }
-
-/* ── ADD/EDIT CLIP MODAL ── */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 200;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s;
-}
-.modal-backdrop.open { opacity: 1; pointer-events: all; }
-.modal-sheet {
-  background: var(--surface);
-  border-radius: var(--radius) var(--radius) 0 0;
-  width: 100%;
-  max-width: 680px;
-  max-height: 92dvh;
-  overflow-y: auto;
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-  padding: 8px 0 32px;
-}
-.modal-backdrop.open .modal-sheet { transform: translateY(0); }
-.modal-handle {
-  width: 40px; height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  margin: 0 auto 20px;
-}
-.modal-title {
-  font-size: 16px;
-  font-weight: 700;
-  padding: 0 16px;
-  margin-bottom: 20px;
-}
-.form-group { padding: 0 16px; margin-bottom: 16px; }
-.form-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--txt-dim);
-  margin-bottom: 6px;
-}
-.form-input {
-  width: 100%;
-  padding: 13px 14px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--txt);
-  font-size: 15px;
-  font-family: var(--font-ui);
   outline: none;
-  transition: border-color var(--transition);
-  -webkit-appearance: none;
 }
-.form-input:focus { border-color: var(--accent); }
-.form-input.error { border-color: var(--danger); }
-.form-input::placeholder { color: var(--txt-dim); }
-.form-hint {
-  font-size: 11px;
-  color: var(--txt-dim);
-  margin-top: 5px;
-}
-.form-error {
-  font-size: 11px;
-  color: var(--danger);
-  margin-top: 5px;
-  display: none;
-}
-.form-error.visible { display: block; }
-.ts-row { display: flex; gap: 10px; }
-.ts-row .form-group { flex: 1; padding: 0; }
-.modal-footer {
-  display: flex;
-  gap: 10px;
-  padding: 0 16px;
-  margin-top: 8px;
-}
-.modal-footer .btn { flex: 1; }
 
-/* ── SETTINGS TAB ── */
-.settings-section { margin-bottom: 24px; }
-.settings-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--txt-dim);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
+/* ── Structure Layout ────────────────────────────────────────────────────── */
+.app-header {
+  height: var(--header-h);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
-}
-.settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  z-index: 10;
 }
-.settings-row:last-child { border-bottom: none; }
-.settings-row-label { font-size: 14px; color: var(--txt); }
-.settings-row-hint { font-size: 12px; color: var(--txt-dim); margin-top: 2px; }
-.settings-group { flex: 1; }
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.brand-logo {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
 
-/* Toggle */
-.toggle {
-  position: relative;
-  width: 44px; height: 26px;
-  flex-shrink: 0;
+.main-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  height: calc(100vh - var(--header-h) - var(--footer-h));
+  overflow: hidden;
 }
-.toggle input { opacity: 0; width: 0; height: 0; }
-.toggle-slider {
+
+@media (max-width: 900px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .sidebar-panel {
+    border-left: none !important;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* ── Player Section ──────────────────────────────────────────────────────── */
+.player-pane {
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+.video-viewport {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #000;
+}
+#yt-player {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  border: none;
+}
+
+/* Fallback/Idle Player Screen Overlay */
+.player-screen-overlay {
   position: absolute;
   inset: 0;
-  background: var(--border);
-  border-radius: 13px;
-  transition: background var(--transition);
-  cursor: pointer;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 2;
+  text-align: center;
+  padding: 24px;
+  transition: opacity 0.3s ease, pointer-events 0.3s ease;
 }
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  width: 20px; height: 20px;
-  left: 3px; top: 3px;
-  background: white;
-  border-radius: 50%;
-  transition: transform var(--transition);
+.player-screen-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
-.toggle input:checked + .toggle-slider { background: var(--accent); }
-.toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+.overlay-icon {
+  color: var(--txt-dim);
+  opacity: 0.5;
+}
+.overlay-text h3 {
+  font-size: 1.25rem;
+  margin-bottom: 6px;
+  color: #fff;
+}
+.overlay-text p {
+  color: var(--txt-dim);
+  font-size: 0.9rem;
+}
 
-/* ── TOASTS ── */
-#toast-container {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 999;
+/* ── Queue Panel ─────────────────────────────────────────────────────────── */
+.sidebar-panel {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.02);
+}
+.panel-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--txt-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.queue-badge {
+  background: var(--border);
+  color: var(--txt);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.queue-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  pointer-events: none;
-  width: calc(100% - 32px);
-  max-width: 400px;
 }
-.toast {
+
+/* ── Queue Items (Fixed: Clean thumbnails without persistent pause badges) ── */
+.queue-item {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 12px;
+  padding: 8px;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  padding: 12px 16px;
-  font-size: 13px;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s, border 0.2s;
+  user-select: none;
+}
+.queue-item:hover {
+  background: #252c42;
+  border-color: #343c5e;
+}
+.queue-item.active {
+  background: rgba(0, 212, 255, 0.06);
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.thumb-wrapper {
+  position: relative;
+  width: 100px;
+  aspect-ratio: 16/9;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+}
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.duration-tag {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+/* Order Number and details layout */
+.item-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.item-title {
+  font-size: 0.88rem;
+  font-weight: 500;
   color: var(--txt);
-  box-shadow: var(--shadow);
-  animation: slideUp 0.3s ease;
-  pointer-events: all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.toast.success { border-left: 3px solid var(--success); }
-.toast.error   { border-left: 3px solid var(--danger); }
-.toast.info    { border-left: 3px solid var(--accent); }
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+.item-subtext {
+  font-size: 0.78rem;
+  color: var(--txt-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.item-idx {
+  font-weight: 700;
+  color: var(--accent);
 }
 
-/* ── IMPORT FILE INPUT (hidden) ── */
-#import-input { display: none; }
+/* Action controls per item row */
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--txt-dim);
+  transition: background 0.2s, color 0.2s;
+}
+.action-btn:hover {
+  background: var(--border);
+  color: #fff;
+}
+.action-btn.del-btn:hover {
+  background: rgba(224, 48, 80, 0.15);
+  color: var(--danger);
+}
 
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* Dragging visual indicators */
+.queue-item.sortable-ghost {
+  opacity: 0.3;
+  border: 1px dashed var(--accent);
+}
 
-/* ── README SECTION ── */
-.readme {
-  margin: 16px;
-  padding: 16px;
+/* Empty Queue Placeholder state */
+.queue-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--txt-dim);
+  text-align: center;
+}
+.queue-empty-state svg {
+  opacity: 0.3;
+}
+
+/* ── Unified Media Control Footer ─────────────────────────────────────────── */
+.app-footer {
+  height: var(--footer-h);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+/* Signature Tape-Reel Segmented Track Overlay */
+.progress-container {
+  height: 6px;
+  width: 100%;
+  background: var(--border);
+  position: relative;
+  cursor: pointer;
+}
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  position: absolute;
+  top: 0; left: 0;
+  transition: width 0.1s linear;
+}
+
+.footer-controls-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.current-metadata {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 30%;
+  min-width: 0;
+}
+.track-info {
+  min-width: 0;
+}
+.track-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.track-time-label {
+  font-size: 0.8rem;
+  color: var(--txt-dim);
+}
+
+.center-media-cluster {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.media-trigger {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--txt);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  transition: background 0.2s, color 0.2s;
+}
+.media-trigger:hover {
+  background: var(--border);
+  color: #fff;
+}
+.media-trigger.primary-play {
+  width: 46px;
+  height: 46px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+}
+.media-trigger.primary-play:hover {
+  background: #40e3ff;
+  transform: scale(1.04);
+}
+
+.right-utility-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  width: 30%;
+}
+.volume-slider-pack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vol-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+}
+.vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+/* Modals & Action Menus */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.icon-btn-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  transition: all 0.2s;
+}
+.icon-btn-text:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* Config Modal Layout */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,7,10,0.85);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.modal-box {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 12px;
+  width: 500px;
+  max-width: 90vw;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(20px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-overlay.open .modal-box {
+  transform: translateY(0);
+}
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-group label {
+  font-size: 0.85rem;
   color: var(--txt-dim);
-  line-height: 1.6;
+  font-weight: 500;
 }
-.readme h3 {
-  font-size: 13px;
-  color: var(--txt);
-  margin-bottom: 10px;
-  font-weight: 700;
+.form-control-input {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
 }
-.readme h4 {
-  font-size: 12px;
-  color: var(--accent);
-  margin: 10px 0 5px;
+.form-control-input:focus {
+  border-color: var(--accent);
+}
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: rgba(0,0,0,0.1);
+}
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
   font-weight: 600;
 }
-.readme p { margin-bottom: 6px; }
-.readme ul { padding-left: 16px; margin-bottom: 6px; }
-.readme li { margin-bottom: 3px; }
+.btn-secondary {
+  background: var(--border);
+  color: var(--txt);
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* Utilities */
+.text-sec { color: var(--txt-dim); }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
 </head>
 <body>
 
-<div class="app">
-  <!-- HEADER -->
-  <header>
-    <h1>Clip<span>Q</span></h1>
+  <header class="app-header">
+    <div class="app-brand">
+      <div class="brand-logo"><i data-feather="layers"></i></div>
+      <span>ClipGlitch Queue</span>
+    </div>
     <div class="header-actions">
-      <button class="btn btn-ghost btn-sm" id="btn-export" title="Export queue">⬆ Export</button>
-      <button class="btn btn-ghost btn-sm" id="btn-paste-json" title="Paste JSON">⬇ Paste JSON</button>
-      <button class="btn btn-ghost btn-sm" id="btn-import" title="Import from file">⬇ File</button>
-      <input type="file" id="import-input" accept=".json">
+      <button class="icon-btn-text" id="open-config-btn">
+        <i data-feather="plus-circle" style="width:16px;height:16px;"></i>
+        <span>Add Clips</span>
+      </button>
+      <button class="action-btn" id="open-settings-btn" title="Settings">
+        <i data-feather="sliders" style="width:18px;height:18px;"></i>
+      </button>
     </div>
   </header>
 
-  <!-- TABS -->
-  <nav class="tabs">
-    <button class="tab-btn active" data-tab="player">▶ Player</button>
-    <button class="tab-btn" data-tab="queue">☰ Queue</button>
-    <button class="tab-btn" data-tab="settings">⚙ Settings</button>
-  </nav>
+  <main class="main-layout">
+    
+    <section class="player-pane">
+      <div class="player-screen-overlay" id="player-idle-overlay">
+        <div class="overlay-icon"><i data-feather="play-circle" style="width:48px;height:48px;"></i></div>
+        <div class="overlay-text">
+          <h3>No Clip Loaded</h3>
+          <p>Select an item from the queue pool or click add clips to populate sequence timelines.</p>
+        </div>
+      </div>
+      <div class="video-viewport">
+        <div id="yt-player"></div>
+      </div>
+    </section>
 
-  <!-- ═══════════════════════════════════ PLAYER TAB ═══════════════════════════════════ -->
-  <div class="tab-pane active" id="tab-player">
-    <!-- YouTube Player -->
-    <div id="player-container">
-      <div id="yt-player"></div>
+    <aside class="sidebar-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i data-feather="list" style="width:16px;height:16px;color:var(--accent)"></i>
+          <span>Play Sequence</span>
+          <span class="queue-badge" id="queue-counter-badge">0</span>
+        </div>
+        <button class="action-btn del-btn" id="clear-queue-btn" title="Purge Sequence Queue">
+          <i data-feather="trash-2" style="width:16px;height:16px;"></i>
+        </button>
+      </div>
 
-      <!-- Idle overlay: shown before queue starts and after it ends -->
-      <div id="player-overlay">
-        <div class="idle-msg">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <rect x="8" y="16" width="48" height="32" rx="4" stroke="currentColor" stroke-width="2" fill="none"/>
-            <polygon points="26,24 26,40 44,32" fill="currentColor" opacity="0.6"/>
-          </svg>
-          <p>Add clips to the queue,<br>then tap <strong>Start Queue</strong></p>
+      <div class="queue-scroll" id="live-sortable-queue">
+        </div>
+    </aside>
+
+  </main>
+
+  <footer class="app-footer">
+    
+    <div class="progress-container" id="timeline-scrub-track">
+      <div class="progress-bar-fill" id="timeline-fill-core"></div>
+    </div>
+
+    <div class="footer-controls-row">
+      
+      <div class="current-metadata">
+        <div class="track-info">
+          <div class="track-title" id="global-footer-title">Idle Interface Console</div>
+          <div class="track-time-label" id="global-footer-time">00:00 / 00:00</div>
         </div>
       </div>
 
-      <!-- Playback overlay: transparent while playing, shows controls when paused.
-           Always intercepts touches so the YouTube iframe control bar never appears. -->
-      <div id="playback-overlay" class="hidden">
-        <div class="po-controls">
-          <button class="po-btn po-prev" id="po-btn-prev" title="Previous clip">⏮</button>
-          <button class="po-btn po-resume" id="po-btn-resume" title="Resume">▶</button>
-          <button class="po-btn po-next" id="po-btn-next" title="Next clip">⏭</button>
-        </div>
-        <div class="po-counter" id="po-counter"></div>
-      </div>
-    </div>
-
-    <!-- Clip progress bar (tape reel aesthetic) -->
-    <div class="clip-progress-track">
-      <div class="clip-progress-fill" id="clip-progress"></div>
-    </div>
-
-    <!-- Status -->
-    <div class="status-row">
-      <div class="status-dot" id="status-dot"></div>
-      <span class="status-text" id="status-text">Idle</span>
-    </div>
-
-    <!-- Now Playing -->
-    <div class="now-playing-card" id="now-playing-card">
-      <div class="npc-top">
-        <span class="npc-badge">Now Playing</span>
-        <span class="npc-count" id="clip-counter">— / —</span>
-      </div>
-      <div class="npc-title" id="np-title">—</div>
-      <div class="npc-times">
-        <div class="npc-time-item">
-          <span class="npc-time-label">Position</span>
-          <span class="npc-time-value current" id="np-position">00:00:00</span>
-        </div>
-        <div class="npc-time-item">
-          <span class="npc-time-label">Remaining</span>
-          <span class="npc-time-value countdown" id="np-remaining">—</span>
-        </div>
-        <div class="npc-time-item">
-          <span class="npc-time-label">Clip ends at</span>
-          <span class="npc-time-value" id="np-endtime">—</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Next Up -->
-    <div class="next-up-card hidden" id="next-up-card">
-      <span class="next-label">Next</span>
-      <span class="next-title" id="next-up-title">—</span>
-    </div>
-
-    <!-- Controls Row 1 -->
-    <div class="controls">
-      <button class="btn btn-secondary" id="btn-prev" disabled>⏮ Prev</button>
-      <button class="btn btn-primary" id="btn-start">▶ Start Queue</button>
-      <button class="btn btn-secondary" id="btn-next" disabled>Next ⏭</button>
-    </div>
-    <!-- Controls Row 2 -->
-    <div class="controls-row2">
-      <button class="btn btn-amber" id="btn-pause" disabled>⏸ Pause</button>
-      <button class="btn btn-danger" id="btn-stop" disabled>⏹ Stop</button>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════ QUEUE TAB ═══════════════════════════════════ -->
-  <div class="tab-pane" id="tab-queue">
-    <div class="queue-toolbar">
-      <button class="btn btn-primary btn-sm" id="btn-add-clip">+ Add Clip</button>
-      <button class="btn btn-ghost btn-sm" id="btn-clear-queue">🗑 Clear All</button>
-    </div>
-
-    <div id="queue-empty" class="queue-empty">
-      <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-        <rect x="8" y="14" width="40" height="6" rx="3" fill="currentColor"/>
-        <rect x="8" y="26" width="30" height="6" rx="3" fill="currentColor"/>
-        <rect x="8" y="38" width="35" height="6" rx="3" fill="currentColor"/>
-      </svg>
-      <p>No clips yet.<br>Tap <strong>+ Add Clip</strong> to get started.</p>
-    </div>
-
-    <div class="clip-list" id="clip-list"></div>
-  </div>
-
-  <!-- ═══════════════════════════════════ SETTINGS TAB ═══════════════════════════════════ -->
-  <div class="tab-pane" id="tab-settings">
-    <div class="settings-section">
-      <div class="settings-title">Playback</div>
-
-      <div class="settings-row">
-        <div class="settings-group">
-          <div class="settings-row-label">Auto Fullscreen</div>
-          <div class="settings-row-hint">Request fullscreen when playback starts</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="setting-fullscreen" checked>
-          <span class="toggle-slider"></span>
-        </label>
+      <div class="center-media-cluster">
+        <button class="media-trigger" id="prev-clip-trigger" title="Previous Sequence Entry">
+          <i data-feather="skip-back" style="width:18px;height:18px;"></i>
+        </button>
+        <button class="media-trigger primary-play" id="global-toggle-play" title="Toggle Play / Pause Execution State">
+          <i data-feather="play" id="global-play-icon" style="width:22px;height:22px;fill:currentColor"></i>
+        </button>
+        <button class="media-trigger" id="next-clip-trigger" title="Skip Next Sequence Entry">
+          <i data-feather="skip-forward" style="width:18px;height:18px;"></i>
+        </button>
       </div>
 
-      <div class="settings-row">
-        <div class="settings-group">
-          <div class="settings-row-label">Pause Between Clips</div>
-          <div class="settings-row-hint">1-second pause before loading next clip</div>
+      <div class="right-utility-cluster">
+        <button class="action-btn" id="loop-toggle-trigger" title="Loop Queue Sequence">
+          <i data-feather="repeat" style="width:16px;height:16px;"></i>
+        </button>
+        <div class="volume-slider-pack">
+          <i data-feather="volume-2" style="width:16px;height:16px;color:var(--txt-dim)"></i>
+          <input type="range" class="vol-range" id="master-volume-fader" min="0" max="100" value="80">
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="setting-pause-between" checked>
-          <span class="toggle-slider"></span>
-        </label>
       </div>
 
-      <div class="settings-row">
-        <div class="settings-group">
-          <div class="settings-row-label">Loop Queue</div>
-          <div class="settings-row-hint">Restart from first clip after last</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="setting-loop">
-          <span class="toggle-slider"></span>
-        </label>
+    </div>
+  </footer>
+
+  <div class="modal-overlay" id="config-modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size:1.1rem;font-weight:600">Import Target Clips</h3>
+        <button class="action-btn" id="close-config-btn"><i data-feather="x"></i></button>
       </div>
-
-      <div class="settings-row">
-        <div class="settings-group">
-          <div class="settings-row-label">YouTube Control Bar</div>
-          <div class="settings-row-hint">Always shown — includes gear, quality &amp; seek bar</div>
-        </div>
-        <span style="font-size:12px;color:var(--success)">Always On</span>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <div class="settings-title">Data</div>
-      <div class="settings-row">
-        <div class="settings-group">
-          <div class="settings-row-label">Clear Saved Queue</div>
-          <div class="settings-row-hint">Removes all clips from localStorage</div>
-        </div>
-        <button class="btn btn-danger btn-sm" id="btn-clear-storage">Clear</button>
-      </div>
-    </div>
-
-    <!-- README -->
-    <div class="readme">
-      <h3>📋 How to Use Clip Queue Player</h3>
-      <h4>Adding Clips</h4>
-      <p>Go to the <strong>Queue</strong> tab → tap <strong>+ Add Clip</strong>. Paste a YouTube URL and enter start/end timestamps in <code>HH:MM:SS</code> format.</p>
-      <h4>Playback &amp; Controls</h4>
-      <p>Tap anywhere on the video to pause/play — this uses YouTube's native controls. The gear icon (⚙) in the bottom-right of the player lets you change quality. The control bar auto-hides after a few seconds of playback.</p>
-      <h4>Controls</h4>
-      <ul>
-        <li><strong>Prev / Next</strong> — jump between clips</li>
-        <li><strong>Pause / Resume</strong> — pause the queue (video and timer)</li>
-        <li><strong>Stop</strong> — end playback and reset</li>
-      </ul>
-      <h4>Import / Export</h4>
-      <p>Use the Export/Import buttons in the header to save or share your queue as a <code>.json</code> file.</p>
-      <h4>Browser Limitations</h4>
-      <ul>
-        <li>Fullscreen requires a user gesture — the app requests it on first Start.</li>
-        <li>YouTube's autoplay policy may require user interaction before audio plays.</li>
-        <li>Private/deleted/age-restricted videos will show an error and skip automatically.</li>
-        <li>Android Chrome may exit fullscreen when the screen locks — re-tap Start to resume.</li>
-        <li>The YouTube IFrame API may not honor seek accuracy to within ±1 second due to video segment boundaries.</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════ ADD/EDIT MODAL ═══════════════════════════════════ -->
-<div class="modal-backdrop" id="clip-modal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title" id="modal-title">Add Clip</div>
-
-    <div class="form-group">
-      <label class="form-label" for="input-url">YouTube URL</label>
-      <input class="form-input" type="url" id="input-url"
-        placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" inputmode="url">
-      <div class="form-hint">Any YouTube URL format is accepted.</div>
-      <div class="form-error" id="err-url">Please enter a valid YouTube URL.</div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Timestamps</label>
-      <div class="ts-row">
+      <div class="modal-body">
         <div class="form-group">
-          <label class="form-label" for="input-start">Start</label>
-          <input class="form-input" type="text" id="input-start"
-            placeholder="00:00:00" maxlength="8" inputmode="numeric">
-          <div class="form-error" id="err-start">Invalid timestamp.</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="input-end">End</label>
-          <input class="form-input" type="text" id="input-end"
-            placeholder="00:00:00" maxlength="8" inputmode="numeric">
-          <div class="form-error" id="err-end">Must be after start.</div>
+          <label for="bulk-import-area">Paste Youtube Content Definition JSON String Arrays</label>
+          <textarea class="form-control-input" id="bulk-import-area" rows="8" style="resize:none;font-family:monospace;font-size:0.8rem;" placeholder='[\n  {\n    "videoId": "dQw4w9WgXcQ",\n    "start": 10,\n    "end": 30,\n    "title": "Optional Preset Label"\n  }\n]'></textarea>
         </div>
       </div>
-    </div>
-
-    <div class="modal-footer">
-      <button class="btn btn-ghost" id="btn-modal-cancel">Cancel</button>
-      <button class="btn btn-primary" id="btn-modal-save">Save Clip</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════ PASTE JSON MODAL ═══════════════════════════════════ -->
-<div class="modal-backdrop" id="paste-modal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Paste JSON</div>
-
-    <div class="form-group">
-      <label class="form-label" for="paste-input">Queue JSON</label>
-      <textarea class="form-input" id="paste-input"
-        rows="10"
-        placeholder='[&#10;  { "url": "...", "startTs": "00:00:00", "endTs": "00:00:10" },&#10;  ...&#10;]'
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        style="resize:vertical; font-family:var(--font-mono); font-size:12px; line-height:1.5;"></textarea>
-      <div class="form-hint">Paste a JSON array of clip objects directly — no file needed.</div>
-      <div class="form-error" id="err-paste" style="display:none"></div>
-    </div>
-
-    <div class="modal-footer">
-      <button class="btn btn-ghost" id="btn-paste-cancel">Cancel</button>
-      <button class="btn btn-secondary" id="btn-paste-clear-field" title="Clear the text area">✕ Clear</button>
-      <button class="btn btn-primary" id="btn-paste-load">Load Clips</button>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-config-btn">Dismiss</button>
+        <button class="btn btn-primary" id="submit-import-btn">Compile Ingestion</button>
+      </div>
     </div>
   </div>
-</div>
-<div id="toast-container"></div>
 
-<script>
-/* ═══════════════════════════════════════════════════════════════════════════
-   CLIP QUEUE PLAYER — Main Application Script
-   Architecture:
-     QueueStore   — manages clip data + localStorage persistence
-     PlayerEngine — controls YouTube IFrame API + clip advancement
-     UIController — renders UI, handles events, bridges store ↔ engine
-═══════════════════════════════════════════════════════════════════════════ */
-
-// ─── UTILITIES ────────────────────────────────────────────────────────────────
-
-/**
- * Convert HH:MM:SS string to total seconds.
- * @param {string} ts
- * @returns {number|null} seconds, or null if invalid
- */
-function tsToSeconds(ts) {
-  if (!ts) return null;
-  const parts = ts.trim().split(':').map(Number);
-  if (parts.some(isNaN)) return null;
-  if (parts.length === 3) {
-    const [h, m, s] = parts;
-    if (m > 59 || s > 59) return null;
-    return h * 3600 + m * 60 + s;
-  }
-  if (parts.length === 2) {
-    const [m, s] = parts;
-    if (m > 59 || s > 59) return null;
-    return m * 60 + s;
-  }
-  if (parts.length === 1) return parts[0];
-  return null;
-}
-
-/**
- * Convert seconds to HH:MM:SS string.
- * @param {number} secs
- * @returns {string}
- */
-function secondsToTs(secs) {
-  if (secs == null || isNaN(secs) || secs < 0) return '00:00:00';
-  const s = Math.floor(secs) % 60;
-  const m = Math.floor(secs / 60) % 60;
-  const h = Math.floor(secs / 3600);
-  return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
-}
-
-/**
- * Extract YouTube video ID from any common URL format.
- * @param {string} url
- * @returns {string|null}
- */
-function extractVideoId(url) {
-  if (!url) return null;
-  const patterns = [
-    /(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ];
-  for (const re of patterns) {
-    const m = url.match(re);
-    if (m) return m[1];
-  }
-  return null;
-}
-
-/**
- * Auto-format a numeric-input string into HH:MM:SS as the user types.
- * @param {string} raw
- * @returns {string}
- */
-function autoFormatTs(raw) {
-  const digits = raw.replace(/\D/g, '').slice(0, 6);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return digits.slice(0, 2) + ':' + digits.slice(2);
-  return digits.slice(0, 2) + ':' + digits.slice(2, 4) + ':' + digits.slice(4);
-}
-
-/** Generate a unique ID. */
-function uid() { return Math.random().toString(36).slice(2, 10); }
-
-/** Show a toast notification. */
-function toast(msg, type = 'info', duration = 3000) {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => el.remove(), duration);
-}
-
-/** Deep clone a plain object/array. */
-function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+  <div class="modal-overlay" id="settings-modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size:1.1rem;font-weight:600">Sequence Player Rules</h3>
+        <button class="action-btn" id="close-settings-btn"><i data-feather="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="flex-direction:row; justify-content:space-between; align-items:center;">
+          <div>
+            <label style="font-size:0.9rem; color:#fff; display:block; margin-bottom:2px;">Autoplay Next Clip</label>
+            <span style="font-size:0.78rem; color:var(--txt-dim);">Automatically advance sequence chains once limits expire.</span>
+          </div>
+          <input type="checkbox" id="setting-autoplay-next" checked style="width:18px; height:18px; accent-color:var(--accent);">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="save-settings-btn">Apply Settings</button>
+      </div>
+    </div>
+  </div>
 
 
-// ─── QUEUE STORE ─────────────────────────────────────────────────────────────
+  <script>
+  
+  // ─── LOCAL STORAGE MANAGEMENT PERSISTENCE CORE ──────────────────────────────
+  const QueueStore = (function() {
+    let internalClips = [];
+    let subscribers = [];
 
-/**
- * QueueStore: immutable-style clip array with localStorage persistence.
- * Each clip: { id, url, videoId, startTs, endTs, title }
- */
-const QueueStore = (() => {
-  const STORAGE_KEY = 'clipq_queue_v1';
-  let clips = [];
-  let listeners = [];
+    function generateId() { return 'clip_' + Math.random().toString(36).substr(2, 9); }
+    function syncLocalStorage() { localStorage.setItem('lawglitch_sequence_clips', JSON.stringify(internalClips)); }
 
-  function notify() { listeners.forEach(fn => fn(clips)); }
+    return {
+      init() {
+        try {
+          const stored = localStorage.getItem('lawglitch_sequence_clips');
+          internalClips = stored ? JSON.parse(stored) : [];
+        } catch(e) { internalClips = []; }
+      },
+      subscribe(callback) {
+        subscribers.push(callback);
+        callback([...internalClips]);
+      },
+      notify() { subscribers.forEach(cb => cb([...internalClips])); },
+      getClips() { return [...internalClips]; },
+      setClips(newClips) {
+        internalClips = newClips.map(c => ({...c, id: c.id || generateId()}));
+        syncLocalStorage();
+        this.notify();
+      },
+      addClipsBulk(rawClipsArray) {
+        const structuralMap = rawClipsArray.map(c => ({
+          id: generateId(),
+          videoId: c.videoId || '',
+          start: parseInt(c.start) || 0,
+          end: parseInt(c.end) || 0,
+          title: c.title || `Fetching Video Data...`
+        })).filter(c => c.videoId.length > 0);
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) clips = JSON.parse(raw);
-    } catch { clips = []; }
-  }
+        internalClips = [...internalClips, ...structuralMap];
+        syncLocalStorage();
+        this.notify();
+      },
+      update(id, updatedFields) {
+        internalClips = internalClips.map(c => c.id === id ? { ...c, ...updatedFields } : c);
+        syncLocalStorage();
+        this.notify();
+      },
+      remove(id) {
+        internalClips = internalClips.filter(c => c.id !== id);
+        syncLocalStorage();
+        this.notify();
+      },
+      clear() {
+        internalClips = [];
+        syncLocalStorage();
+        this.notify();
+      }
+    };
+  })();
 
-  function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(clips)); } catch {}
-  }
-
-  return {
-    init() { load(); },
-
-    subscribe(fn) { listeners.push(fn); fn(clips); },
-
-    getAll() { return clone(clips); },
-
-    get(id) { return clone(clips.find(c => c.id === id)) || null; },
-
-    add(clip) {
-      clip.id = uid();
-      clips.push(clip);
-      save(); notify();
-      return clip.id;
-    },
-
-    update(id, data) {
-      const i = clips.findIndex(c => c.id === id);
-      if (i === -1) return;
-      clips[i] = { ...clips[i], ...data };
-      save(); notify();
-    },
-
-    remove(id) {
-      clips = clips.filter(c => c.id !== id);
-      save(); notify();
-    },
-
-    reorder(fromIdx, toIdx) {
-      const item = clips.splice(fromIdx, 1)[0];
-      clips.splice(toIdx, 0, item);
-      save(); notify();
-    },
-
-    clear() { clips = []; save(); notify(); },
-
-    import(arr) {
-      // Validate and sanitise imported data
-      clips = arr
-        .filter(c => c.url && c.startTs != null && c.endTs != null)
-        .map(c => ({
-          id:      c.id || uid(),
-          url:     c.url,
-          videoId: c.videoId || extractVideoId(c.url),
-          startTs: c.startTs,
-          endTs:   c.endTs,
-          title:   c.title || '',
-        }));
-      save(); notify();
-    },
-
-    exportJSON() { return JSON.stringify(clips, null, 2); },
-
-    count() { return clips.length; },
-  };
-})();
-
-
-// ─── SETTINGS STORE ──────────────────────────────────────────────────────────
-
-const SettingsStore = (() => {
-  const KEY = 'clipq_settings_v1';
-  const defaults = {
-    autoFullscreen: true,
-    pauseBetween: true,
-    loopQueue: false,
-    ytControls: false,
-  };
-  let settings = { ...defaults };
-
-  return {
+  const SettingsStore = {
+    options: { autoplayNext: true, loopQueue: false },
     init() {
-      try {
-        const raw = localStorage.getItem(KEY);
-        if (raw) settings = { ...defaults, ...JSON.parse(raw) };
-      } catch {}
+      const stored = localStorage.getItem('lawglitch_sequence_settings');
+      if (stored) { try { this.options = JSON.parse(stored); } catch(e){} }
     },
-    get(k) { return settings[k]; },
-    set(k, v) {
-      settings[k] = v;
-      try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
-    },
-    getAll() { return { ...settings }; },
-  };
-})();
-
-
-// ─── PLAYER ENGINE ────────────────────────────────────────────────────────────
-
-/**
- * PlayerEngine: owns the YT.Player instance, manages clip sequencing,
- * polling loop, and state machine.
- *
- * States: idle | loading | seeking | playing | paused | between | done | error
- */
-const PlayerEngine = (() => {
-  let ytPlayer = null;
-  let ytReady = false;
-
-  let clips = [];         // current queue snapshot
-  let currentIdx = -1;    // index of active clip
-  let state = 'idle';     // playback state
-  let pollTimer = null;   // setInterval id
-  let endWatchTimeout = null; // fallback timeout when near clip end
-  let seekPending = false;  // guard against concurrent seeks
-  let skipRaceToken = 0;    // increments on each skip to cancel stale callbacks
-
-  // Callbacks for UI updates
-  const callbacks = {
-    onStateChange: null,
-    onClipChange: null,
-    onTimeUpdate: null,
-    onError: null,
+    save(newOpts) {
+      this.options = { ...this.options, ...newOpts };
+      localStorage.setItem('lawglitch_sequence_settings', JSON.stringify(this.options));
+    }
   };
 
-  function emit(event, ...args) {
-    if (callbacks['on' + event]) callbacks['on' + event](...args);
-  }
 
-  /** Change engine state and notify UI. */
-  function setState(s) {
-    state = s;
-    emit('StateChange', { state, currentIdx, clips });
-  }
+  // ─── YOUTUBE PLAYER WRAPPER INTERFACE ──────────────────────────────────────
+  const PlayerEngine = (function() {
+    let player = null;
+    let activeClipInstance = null;
+    let activeIndex = -1;
+    let monitorInterval = null;
+    let eventListeners = {};
 
-  /** Get current clip data. */
-  function currentClip() {
-    return clips[currentIdx] || null;
-  }
-
-  /** Start the polling interval that drives time updates and end detection. */
-  function startPolling() {
-    stopPolling();
-    pollTimer = setInterval(pollTick, 500);
-  }
-
-  function stopPolling() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    if (endWatchTimeout) { clearTimeout(endWatchTimeout); endWatchTimeout = null; }
-  }
-
-  /**
-   * Poll the player every 500ms.
-   * Handles:
-   *   - Time update notifications
-   *   - End-of-clip detection
-   *   - Buffering detection
-   */
-  function pollTick() {
-    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-    if (state !== 'playing') return;
-
-    const clip = currentClip();
-    if (!clip) return;
-
-    let pos;
-    try { pos = ytPlayer.getCurrentTime(); } catch { return; }
-
-    const endSec = tsToSeconds(clip.endTs);
-    emit('TimeUpdate', { pos, endSec });
-
-    // Detect if we've reached or passed end timestamp
-    if (endSec != null && pos >= endSec - 0.3) {
-      advanceClip();
-    }
-  }
-
-  /**
-   * Load a clip by index.
-   * Optimization: if the next clip is on the same video, skip full reload and
-   * just seekTo the new start — dramatically faster for same-stream clip sequences.
-   * @param {number} idx
-   * @param {number} token — race-condition guard
-   */
-  async function loadClip(idx, token) {
-    if (!ytPlayer || !ytReady) return;
-    if (token !== skipRaceToken) return; // stale call
-
-    const clip = clips[idx];
-    if (!clip) { setState('done'); return; }
-
-    const startSec = tsToSeconds(clip.startTs);
-    if (startSec == null) {
-      emit('Error', { message: 'Invalid start timestamp', clip, idx });
-      nextClipOrStop(token);
-      return;
+    function triggerEvent(evName, data) {
+      if (eventListeners[evName]) eventListeners[evName].forEach(cb => cb(data));
     }
 
-    setState('loading');
-    seekPending = true;
+    function monitorTimeExecution() {
+      if (!player || typeof player.getCurrentTime !== 'function') return;
+      const currTime = player.getCurrentTime();
+      
+      triggerEvent('TimeUpdate', {
+        currentTime: currTime,
+        start: activeClipInstance ? activeClipInstance.start : 0,
+        end: activeClipInstance ? activeClipInstance.end : player.getDuration()
+      });
 
-    // Check if we can fast-seek instead of full reload (same video already loaded)
-    const prevClip = clips[idx - 1];
-    const sameVideo = prevClip && prevClip.videoId === clip.videoId
-      && ytPlayer.getVideoData
-      && ytPlayer.getVideoData().video_id === clip.videoId;
+      if (activeClipInstance && activeClipInstance.end && currTime >= activeClipInstance.end) {
+        triggerEvent('ClipChange', { state: 'ended', index: activeIndex, clip: activeClipInstance });
+      }
+    }
 
-    try {
-      if (sameVideo) {
-        // Fast path: seek within the already-loaded video, no buffering reload
-        ytPlayer.seekTo(startSec, true);
-        ytPlayer.playVideo();
+    return {
+      on(evName, callback) {
+        if (!eventListeners[evName]) eventListeners[evName] = [];
+        eventListeners[evName].push(callback);
+      },
+      initPlayer(elementId) {
+        player = new YT.Player(elementId, {
+          height: '100%',
+          width: '100%',
+          playerVars: {
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            rel: 0,
+            modestbranding: 1,
+            iv_load_policy: 3
+          },
+          events: {
+            onStateChange: (event) => {
+              let stateString = 'unknown';
+              if (event.data === YT.PlayerState.PLAYING) {
+                stateString = 'playing';
+                if (!monitorInterval) monitorInterval = setInterval(monitorTimeExecution, 250);
+              } else {
+                if (event.data === YT.PlayerState.PAUSED) stateString = 'paused';
+                else if (event.data === YT.PlayerState.BUFFERING) stateString = 'buffering';
+                else if (event.data === YT.PlayerState.ENDED) stateString = 'ended';
+                
+                if (monitorInterval && stateString !== 'buffering') {
+                  clearInterval(monitorInterval);
+                  monitorInterval = null;
+                }
+              }
+              triggerEvent('StateChange', { state: stateString, currentIdx: activeIndex, clips: QueueStore.getClips() });
+            },
+            onReady: () => {
+              const savedVol = document.getElementById('master-volume-fader').value;
+              player.setVolume(parseInt(savedVol));
+            }
+          }
+        });
+      },
+      loadClipIndex(idx) {
+        const clips = QueueStore.getClips();
+        if (idx < 0 || idx >= clips.length) return;
+
+        activeIndex = idx;
+        activeClipInstance = clips[idx];
+
+        if (player && typeof player.loadVideoById === 'function') {
+          player.loadVideoById({
+            videoId: activeClipInstance.videoId,
+            startSeconds: activeClipInstance.start || 0
+          });
+          triggerEvent('StateChange', { state: 'loading', currentIdx: activeIndex, clips });
+        }
+      },
+      play() { if(player && player.playVideo) player.playVideo(); },
+      pause() { if(player && player.pauseVideo) player.pauseVideo(); },
+      setVolume(val) { if(player && player.setVolume) player.setVolume(val); },
+      seekTo(seconds) { if(player && player.seekTo) player.seekTo(seconds, true); },
+      getActiveIndex() { return activeIndex; },
+      resetIndex() { activeIndex = -1; activeClipInstance = null; }
+    };
+  })();
+
+
+  // ─── UI CONTROLLER AND VIEW RENDERER ────────────────────────────────────────
+  const UI = (function() {
+    const DOM = {
+      queueContainer:     document.getElementById('live-sortable-queue'),
+      badgeCounter:       document.getElementById('queue-counter-badge'),
+      clearQueueBtn:      document.getElementById('clear-queue-btn'),
+      idleOverlay:        document.getElementById('player-idle-overlay'),
+      globalPlayBtn:      document.getElementById('global-toggle-play'),
+      globalPlayIcon:     document.getElementById('global-play-icon'),
+      prevClipBtn:        document.getElementById('prev-clip-trigger'),
+      nextClipBtn:        document.getElementById('next-clip-trigger'),
+      loopToggleBtn:      document.getElementById('loop-toggle-trigger'),
+      volumeFader:        document.getElementById('master-volume-fader'),
+      footerTitle:        document.getElementById('global-footer-title'),
+      footerTime:         document.getElementById('global-footer-time'),
+      timelineTrack:      document.getElementById('timeline-scrub-track'),
+      timelineFill:       document.getElementById('timeline-fill-core'),
+      
+      configModal:        document.getElementById('config-modal-backdrop'),
+      openConfigBtn:      document.getElementById('open-config-btn'),
+      closeConfigBtn:     document.getElementById('close-config-btn'),
+      cancelConfigBtn:    document.getElementById('cancel-config-btn'),
+      submitImportBtn:    document.getElementById('submit-import-btn'),
+      bulkImportArea:     document.getElementById('bulk-import-area'),
+
+      settingsModal:      document.getElementById('settings-modal-backdrop'),
+      openSettingsBtn:    document.getElementById('open-settings-btn'),
+      closeSettingsBtn:   document.getElementById('close-settings-btn'),
+      saveSettingsBtn:    document.getElementById('save-settings-btn'),
+      settingAutoplay:    document.getElementById('setting-autoplay-next')
+    };
+
+    let sortableInstance = null;
+
+    function formatTime(sec) {
+      if (isNaN(sec) || sec < 0) return '00:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    /* Renders the live sequence items without adding layout-breaking elements.
+       All active states are managed through clean item-row borders and highlights.
+    */
+    function renderQueue(clips) {
+      DOM.badgeCounter.textContent = clips.length;
+      DOM.queueContainer.innerHTML = '';
+
+      if (clips.length === 0) {
+        DOM.queueContainer.innerHTML = `
+          <div class="queue-empty-state">
+            <i data-feather="box" style="width:32px;height:32px;"></i>
+            <p>Sequence queue configuration stack empty.</p>
+          </div>
+        `;
+        feather.replace();
+        return;
+      }
+
+      const activeIdx = PlayerEngine.getActiveIndex();
+
+      clips.forEach((clip, index) => {
+        const durationSec = (clip.end && clip.start) ? (clip.end - clip.start) : 0;
+        const durationString = durationSec > 0 ? formatTime(durationSec) : '--:--';
+        
+        const itemRow = document.createElement('div');
+        itemRow.className = `queue-item ${index === activeIdx ? 'active' : ''}`;
+        itemRow.setAttribute('data-id', clip.id);
+        itemRow.setAttribute('data-index', index);
+
+        itemRow.innerHTML = `
+          <div class="thumb-wrapper">
+            <img class="thumb-img" src="https://img.youtube.com/vi/${clip.videoId}/mqdefault.jpg" alt="Thumb">
+            <span class="duration-tag">${durationString}</span>
+          </div>
+          <div class="item-meta">
+            <div class="item-title">${clip.title}</div>
+            <div class="item-subtext">
+              <span class="item-idx">#${(index + 1).toString().padStart(2, '0')}</span>
+              <span>Range: ${clip.start}s - ${clip.end}s</span>
+            </div>
+          </div>
+          <div class="item-actions">
+            <button class="action-btn del-btn row-delete-trigger" title="Delete Entry"><i data-feather="x" style="width:14px;height:14px;"></i></button>
+          </div>
+        `;
+
+        // Selection Trigger Action
+        itemRow.addEventListener('click', (e) => {
+          if (e.target.closest('.row-delete-trigger')) {
+            e.stopPropagation();
+            QueueStore.remove(clip.id);
+            if (index === PlayerEngine.getActiveIndex()) {
+              PlayerEngine.resetIndex();
+              DOM.idleOverlay.classList.remove('hidden');
+            }
+            return;
+          }
+          PlayerEngine.loadClipIndex(index);
+        });
+
+        DOM.queueContainer.appendChild(itemRow);
+      });
+
+      feather.replace();
+    }
+
+    function handleStateChange(engineState) {
+      const { state, currentIdx, clips } = engineState;
+      
+      if (currentIdx !== -1 && clips[currentIdx]) {
+        DOM.idleOverlay.classList.add('hidden');
+        DOM.footerTitle.textContent = clips[currentIdx].title;
       } else {
-        // Full load path for new video
-        ytPlayer.loadVideoById({
-          videoId: clip.videoId,
-          startSeconds: startSec,
-          suggestedQuality: 'hd1080',
+        DOM.idleOverlay.classList.remove('hidden');
+        DOM.footerTitle.textContent = "Idle Interface Console";
+        DOM.footerTime.textContent = "00:00 / 00:00";
+        DOM.timelineFill.style.width = '0%';
+      }
+
+      // Track playing toggle status displays
+      if (state === 'playing') {
+        DOM.globalPlayIcon.setAttribute('data-feather', 'pause');
+      } else {
+        DOM.globalPlayIcon.setAttribute('data-feather', 'play');
+      }
+      feather.replace();
+
+      // Refresh highlight elements inside lists
+      const rows = DOM.queueContainer.querySelectorAll('.queue-item');
+      rows.forEach((row, idx) => {
+        if (idx === currentIdx) row.classList.add('active');
+        else row.classList.remove('active');
+      });
+    }
+
+    function handleClipChange(changeData) {
+      if (changeData.state === 'ended') {
+        const nextIdx = changeData.index + 1;
+        const clips = QueueStore.getClips();
+
+        if (nextIdx < clips.length && SettingsStore.options.autoplayNext) {
+          PlayerEngine.loadClipIndex(nextIdx);
+        } else if (SettingsStore.options.loopQueue && clips.length > 0) {
+          PlayerEngine.loadClipIndex(0);
+        } else {
+          PlayerEngine.resetIndex();
+          handleStateChange({ state: 'idle', currentIdx: -1, clips });
+        }
+      }
+    }
+
+    function handleTimeUpdate(metrics) {
+      const durationRange = metrics.end - metrics.start;
+      const elapsedRelative = metrics.currentTime - metrics.start;
+      
+      let percentage = (elapsedRelative / durationRange) * 100;
+      if (percentage < 0) percentage = 0;
+      if (percentage > 100) percentage = 100;
+
+      DOM.timelineFill.style.width = `${percentage}%`;
+      DOM.footerTime.textContent = `${formatTime(elapsedRelative)} / ${formatTime(durationRange)}`;
+    }
+
+    function handleError() {
+      DOM.footerTitle.textContent = "Playback Performance Error Exception";
+    }
+
+    async function fetchVideoTitle(videoId) {
+      try {
+        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+        const data = await res.json();
+        return data.title || null;
+      } catch (e) { return null; }
+    }
+
+    async function hydrateQueueTitles() {
+      const clips = QueueStore.getClips();
+      for (let clip of clips) {
+        if (clip.title.startsWith("Fetching Video Data...")) {
+          const title = await fetchVideoTitle(clip.videoId);
+          if (title) QueueStore.update(clip.id, { title });
+        }
+      }
+    }
+
+    // ── Public init ──────────────────────────────────────────────────────────────
+    return {
+      init() {
+        QueueStore.subscribe(clips => renderQueue(clips));
+        PlayerEngine.on('StateChange', handleStateChange);
+        PlayerEngine.on('ClipChange',  handleClipChange);
+        PlayerEngine.on('TimeUpdate',  handleTimeUpdate);
+        PlayerEngine.on('Error',       handleError);
+
+        handleStateChange({ state: 'idle', currentIdx: -1, clips: [] });
+        hydrateQueueTitles();
+
+        // Register Sorting drag-drop engines
+        sortableInstance = new Sortable(DOM.queueContainer, {
+          animation: 150,
+          ghostClass: 'sortable-ghost',
+          handle: '.queue-item',
+          onEnd: () => {
+            const reorderedClips = [];
+            const rows = DOM.queueContainer.querySelectorAll('.queue-item');
+            const currentClips = QueueStore.getClips();
+            
+            rows.forEach(row => {
+              const matchId = row.getAttribute('data-id');
+              const found = currentClips.find(c => c.id === matchId);
+              if (found) reorderedClips.push(found);
+            });
+            
+            QueueStore.setClips(reorderedClips);
+          }
+        });
+
+        // Click handler implementations
+        DOM.clearQueueBtn.addEventListener('click', () => {
+          if (confirm("Purge sequence workspace pipelines completely?")) {
+            QueueStore.clear();
+            PlayerEngine.resetIndex();
+            handleStateChange({ state: 'idle', currentIdx: -1, clips: [] });
+          }
+        });
+
+        DOM.globalPlayBtn.addEventListener('click', () => {
+          const currentIdx = PlayerEngine.getActiveIndex();
+          if (currentIdx === -1 && QueueStore.getClips().length > 0) {
+            PlayerEngine.loadClipIndex(0);
+          } else {
+            const rows = DOM.queueContainer.querySelectorAll('.queue-item');
+            const targetActiveRow = DOM.queueContainer.querySelector('.queue-item.active');
+            if (targetActiveRow) {
+              const isPlaying = DOM.globalPlayIcon.getAttribute('data-feather') === 'pause';
+              if (isPlaying) PlayerEngine.pause();
+              else PlayerEngine.play();
+            }
+          }
+        });
+
+        DOM.prevClipBtn.addEventListener('click', () => {
+          const prev = PlayerEngine.getActiveIndex() - 1;
+          if (prev >= 0) PlayerEngine.loadClipIndex(prev);
+        });
+
+        DOM.nextClipBtn.addEventListener('click', () => {
+          const next = PlayerEngine.getActiveIndex() + 1;
+          if (next < QueueStore.getClips().length) PlayerEngine.loadClipIndex(next);
+        });
+
+        DOM.volumeFader.addEventListener('input', (e) => {
+          PlayerEngine.setVolume(parseInt(e.target.value));
+        });
+
+        DOM.loopToggleBtn.addEventListener('click', () => {
+          SettingsStore.options.loopQueue = !SettingsStore.options.loopQueue;
+          DOM.loopToggleBtn.style.color = SettingsStore.options.loopQueue ? 'var(--accent)' : 'var(--txt-dim)';
+        });
+
+        DOM.timelineTrack.addEventListener('click', (e) => {
+          const activeIdx = PlayerEngine.getActiveIndex();
+          if (activeIdx === -1) return;
+          const currentClips = QueueStore.getClips();
+          const targetClip = currentClips[activeIdx];
+          
+          const rect = DOM.timelineTrack.getBoundingClientRect();
+          const pct = (e.clientX - rect.left) / rect.width;
+          const totalClipDuration = targetClip.end - targetClip.start;
+          
+          const targetSeconds = targetClip.start + (totalClipDuration * pct);
+          PlayerEngine.seekTo(targetSeconds);
+        });
+
+        // Modal triggers binding configurations
+        DOM.openConfigBtn.addEventListener('click', () => DOM.configModal.classList.add('open'));
+        DOM.closeConfigBtn.addEventListener('click', () => DOM.configModal.classList.remove('open'));
+        DOM.cancelConfigBtn.addEventListener('click', () => DOM.configModal.classList.remove('open'));
+        
+        DOM.submitImportBtn.addEventListener('click', async () => {
+          try {
+            const parsing = JSON.parse(DOM.bulkImportArea.value);
+            if (Array.isArray(parsing)) {
+              QueueStore.addClipsBulk(parsing);
+              DOM.configModal.classList.remove('open');
+              DOM.bulkImportArea.value = '';
+              await hydrateQueueTitles();
+            } else { alert("Data must compile into structural array sequences."); }
+          } catch(e) { alert("Parsing processing errors invalid syntax."); }
+        });
+
+        DOM.openSettingsBtn.addEventListener('click', () => {
+          DOM.settingAutoplay.checked = SettingsStore.options.autoplayNext;
+          DOM.settingsModal.classList.add('open');
+        });
+        DOM.closeSettingsBtn.addEventListener('click', () => DOM.settingsModal.classList.remove('open'));
+        DOM.saveSettingsBtn.addEventListener('click', () => {
+          SettingsStore.save({ autoplayNext: DOM.settingAutoplay.checked });
+          DOM.settingsModal.classList.remove('open');
         });
       }
-    } catch (e) {
-      emit('Error', { message: 'Failed to load video', clip, idx });
-      seekPending = false;
-      nextClipOrStop(token);
-    }
-  }
-
-  /**
-   * After the video starts playing, verify we're at the right position.
-   * YouTube sometimes doesn't honor startSeconds exactly.
-   */
-  function verifyAndPlay(token) {
-    if (token !== skipRaceToken) return;
-    const clip = currentClip();
-    if (!clip) return;
-
-    const startSec = tsToSeconds(clip.startTs);
-    const endSec = tsToSeconds(clip.endTs);
-
-    // Validate end > start
-    if (endSec != null && startSec != null && endSec <= startSec) {
-      emit('Error', { message: 'End time must be after start time', clip, idx: currentIdx });
-      nextClipOrStop(token);
-      return;
-    }
-
-    try {
-      const pos = ytPlayer.getCurrentTime();
-      // If more than 2s off, seek again
-      if (Math.abs(pos - startSec) > 2) {
-        ytPlayer.seekTo(startSec, true);
-      }
-    } catch {}
-
-    seekPending = false;
-    setState('playing');
-    startPolling();
-
-    emit('ClipChange', { idx: currentIdx, clip, clips });
-
-    // Fullscreen
-    if (SettingsStore.get('autoFullscreen')) {
-      requestFullscreen();
-    }
-  }
-
-  /** Move to next clip, or stop if at end. */
-  function nextClipOrStop(token) {
-    if (token !== skipRaceToken) return;
-    stopPolling();
-
-    // 300ms breathing room between clips (was 1000ms — felt sluggish).
-    // Enough for the seek to settle without a noticeable freeze.
-    const delay = SettingsStore.get('pauseBetween') ? 300 : 0;
-
-    setState('between');
-    setTimeout(() => {
-      if (token !== skipRaceToken) return;
-      const nextIdx = currentIdx + 1;
-      if (nextIdx < clips.length) {
-        currentIdx = nextIdx;
-        loadClip(currentIdx, token);
-      } else if (SettingsStore.get('loopQueue') && clips.length > 0) {
-        currentIdx = 0;
-        loadClip(currentIdx, token);
-      } else {
-        setState('done');
-        emit('ClipChange', { idx: -1, clip: null, clips });
-      }
-    }, delay);
-  }
-
-  /** Called when a clip naturally finishes (pos >= endTs). */
-  function advanceClip() {
-    const token = ++skipRaceToken;
-    stopPolling();
-    setState('between');
-
-    try { ytPlayer.pauseVideo(); } catch {}
-
-    // Call nextClipOrStop directly — it owns the delay logic internally.
-    nextClipOrStop(token);
-  }
-
-  /** Request fullscreen on the player container. */
-  function requestFullscreen() {
-    const el = document.getElementById('player-container');
-    if (!el) return;
-    try {
-      if (el.requestFullscreen) el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    } catch {}
-  }
-
-  /** YouTube IFrame API event: player state changed. */
-  function onYTStateChange(event) {
-    const YT = window.YT;
-    if (!YT) return;
-
-    switch (event.data) {
-      case YT.PlayerState.PLAYING:
-        if (seekPending) {
-          // First play after load — verify position
-          verifyAndPlay(skipRaceToken);
-        } else if (state === 'paused') {
-          setState('playing');
-          startPolling();
-        }
-        break;
-
-      case YT.PlayerState.PAUSED:
-        if (state === 'playing') {
-          // User manually paused (or system pause) — don't auto-advance
-        }
-        break;
-
-      case YT.PlayerState.ENDED:
-        // Video ended before end timestamp (video shorter than endTs)
-        if (state === 'playing' || state === 'loading' || state === 'seeking') {
-          advanceClip();
-        }
-        break;
-
-      case YT.PlayerState.BUFFERING:
-        if (state === 'playing') {
-          emit('StateChange', { state: 'buffering', currentIdx, clips });
-        }
-        break;
-    }
-  }
-
-  /** YouTube IFrame API event: error */
-  function onYTError(event) {
-    // Error codes: 2=bad videoId, 5=HTML5 error, 100=not found/private, 101/150=embedding blocked
-    const msg = {
-      2: 'Invalid video ID',
-      5: 'HTML5 player error',
-      100: 'Video not found or private',
-      101: 'Video cannot be embedded',
-      150: 'Video cannot be embedded',
-    }[event.data] || `Player error (${event.data})`;
-
-    emit('Error', { message: msg, clip: currentClip(), idx: currentIdx });
-
-    // Skip to next clip after error
-    setTimeout(() => nextClipOrStop(skipRaceToken), 1500);
-  }
-
-  // ── PUBLIC API ──────────────────────────────────────────────────────────────
-
-  return {
-    /** Must be called once the YT IFrame API is ready. */
-    initPlayer(containerId) {
-      if (ytPlayer) return;
-      ytPlayer = new YT.Player(containerId, {
-        width: '100%',
-        height: '100%',
-        playerVars: {
-          controls: 0,      // hide YouTube control bar entirely — our overlay handles all UI
-          disablekb: 1,     // disable keyboard shortcuts that can trigger YT overlays
-          rel: 0,
-          modestbranding: 1,
-          playsinline: 1,
-          enablejsapi: 1,
-          origin: location.origin,
-          iv_load_policy: 3, // hide video annotations
-          cc_load_policy: 0, // hide captions by default
-        },
-        events: {
-          onReady: () => { ytReady = true; },
-          onStateChange: onYTStateChange,
-          onError: onYTError,
-        },
-      });
-    },
-
-    on(event, fn) { callbacks['on' + event] = fn; },
-
-    /** Start playing from the beginning of the queue. */
-    start(queueClips) {
-      if (!ytReady) { toast('Player not ready yet, please wait.', 'error'); return; }
-      if (!queueClips || queueClips.length === 0) {
-        toast('Queue is empty. Add some clips first.', 'error'); return;
-      }
-      clips = clone(queueClips);
-      currentIdx = 0;
-      skipRaceToken++;
-      loadClip(currentIdx, skipRaceToken);
-    },
-
-    /** Jump to a specific clip by index. */
-    jumpTo(idx) {
-      if (!ytReady || clips.length === 0) return;
-      if (idx < 0 || idx >= clips.length) return;
-      stopPolling();
-      currentIdx = idx;
-      skipRaceToken++;
-      loadClip(currentIdx, skipRaceToken);
-    },
-
-    /** Reload queue data without stopping (for live queue edits). */
-    updateQueue(queueClips) {
-      clips = clone(queueClips);
-    },
-
-    /** Pause current playback. */
-    pause() {
-      if (state !== 'playing') return;
-      stopPolling();
-      try { ytPlayer.pauseVideo(); } catch {}
-      setState('paused');
-    },
-
-    /** Resume if paused. */
-    resume() {
-      if (state !== 'paused') return;
-      try { ytPlayer.playVideo(); } catch {}
-      setState('playing');
-      startPolling();
-    },
-
-    /** Skip to next clip. */
-    next() {
-      if (currentIdx >= clips.length - 1) return;
-      stopPolling();
-      currentIdx++;
-      skipRaceToken++;
-      loadClip(currentIdx, skipRaceToken);
-    },
-
-    /** Go back to previous clip. */
-    prev() {
-      if (currentIdx <= 0) return;
-      stopPolling();
-      currentIdx--;
-      skipRaceToken++;
-      loadClip(currentIdx, skipRaceToken);
-    },
-
-    /** Stop all playback and reset. */
-    stop() {
-      stopPolling();
-      skipRaceToken++;
-      setState('idle');
-      currentIdx = -1;
-      clips = [];
-      seekPending = false;
-      try { ytPlayer.stopVideo(); } catch {}
-      emit('ClipChange', { idx: -1, clip: null, clips: [] });
-    },
-
-    getState() { return state; },
-    getCurrentIdx() { return currentIdx; },
-    getClips() { return clips; },
-
-    /** Update player controls visibility (requires reloading player). */
-    setControls(show) {
-      // Note: YT player controls require re-creation to change
-      // We store the preference for next session
-    },
-  };
-})();
+    };
+  })();
 
 
-// ─── UI CONTROLLER ────────────────────────────────────────────────────────────
-
-const UI = (() => {
-  // ── Element references ──────────────────────────────────────────────────────
-  const $ = id => document.getElementById(id);
-  const els = {
-    playerOverlay:  $('player-overlay'),
-    playbackOverlay:$('playback-overlay'),
-    poCounter:      $('po-counter'),
-    poBtnPrev:      $('po-btn-prev'),
-    poBtnResume:    $('po-btn-resume'),
-    poBtnNext:      $('po-btn-next'),
-    clipProgress:   $('clip-progress'),
-    statusDot:      $('status-dot'),
-    statusText:     $('status-text'),
-    npTitle:        $('np-title'),
-    clipCounter:    $('clip-counter'),
-    npPosition:     $('np-position'),
-    npRemaining:    $('np-remaining'),
-    npEndtime:      $('np-endtime'),
-    nextUpCard:     $('next-up-card'),
-    nextUpTitle:    $('next-up-title'),
-    btnStart:       $('btn-start'),
-    btnPause:       $('btn-pause'),
-    btnStop:        $('btn-stop'),
-    btnPrev:        $('btn-prev'),
-    btnNext:        $('btn-next'),
-    clipList:       $('clip-list'),
-    queueEmpty:     $('queue-empty'),
-    modal:          $('clip-modal'),
-    modalTitle:     $('modal-title'),
-    inputUrl:       $('input-url'),
-    inputStart:     $('input-start'),
-    inputEnd:       $('input-end'),
-    errUrl:         $('err-url'),
-    errStart:       $('err-start'),
-    errEnd:         $('err-end'),
-    importInput:    $('import-input'),
+  // ─── YOUTUBE IFRAME API BOOTSTRAP ────────────────────────────────────────────
+  window.onYouTubeIframeAPIReady = function() {
+    PlayerEngine.initPlayer('yt-player');
   };
 
-  let editingId = null;    // null = adding, string = editing
-  let dragSrcIdx = null;   // for drag-and-drop reorder
-
-  // ── Tab switching ────────────────────────────────────────────────────────────
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      $('tab-' + btn.dataset.tab).classList.add('active');
-    });
-  });
-
-  // ── Timestamp auto-format ────────────────────────────────────────────────────
-  [els.inputStart, els.inputEnd].forEach(input => {
-    input.addEventListener('input', e => {
-      const pos = e.target.selectionStart;
-      const raw = e.target.value;
-      e.target.value = autoFormatTs(raw.replace(/:/g, ''));
-    });
-  });
-
-  // ── Modal controls ───────────────────────────────────────────────────────────
-  function openModal(clip = null) {
-    editingId = clip ? clip.id : null;
-    els.modalTitle.textContent = clip ? 'Edit Clip' : 'Add Clip';
-    els.inputUrl.value   = clip ? clip.url : '';
-    els.inputStart.value = clip ? clip.startTs : '';
-    els.inputEnd.value   = clip ? clip.endTs : '';
-    [els.errUrl, els.errStart, els.errEnd].forEach(e => e.classList.remove('visible'));
-    [els.inputUrl, els.inputStart, els.inputEnd].forEach(e => e.classList.remove('error'));
-    els.modal.classList.add('open');
-    setTimeout(() => els.inputUrl.focus(), 350);
-  }
-
-  function closeModal() { els.modal.classList.remove('open'); }
-
-  els.modal.addEventListener('click', e => { if (e.target === els.modal) closeModal(); });
-  $('btn-modal-cancel').addEventListener('click', closeModal);
-  $('btn-add-clip').addEventListener('click', () => openModal());
-
-  $('btn-modal-save').addEventListener('click', () => {
-    const url   = els.inputUrl.value.trim();
-    const start = els.inputStart.value.trim() || '00:00:00';
-    const end   = els.inputEnd.value.trim();
-
-    let valid = true;
-
-    // Validate URL
-    const videoId = extractVideoId(url);
-    if (!videoId) {
-      els.errUrl.classList.add('visible');
-      els.inputUrl.classList.add('error');
-      valid = false;
-    } else {
-      els.errUrl.classList.remove('visible');
-      els.inputUrl.classList.remove('error');
-    }
-
-    // Validate start timestamp
-    const startSec = tsToSeconds(start);
-    if (startSec == null) {
-      els.errStart.classList.add('visible');
-      els.inputStart.classList.add('error');
-      valid = false;
-    } else {
-      els.errStart.classList.remove('visible');
-      els.inputStart.classList.remove('error');
-    }
-
-    // Validate end timestamp
-    const endSec = tsToSeconds(end);
-    if (endSec == null || (startSec != null && endSec <= startSec)) {
-      els.errEnd.classList.add('visible');
-      els.inputEnd.classList.add('error');
-      valid = false;
-    } else {
-      els.errEnd.classList.remove('visible');
-      els.inputEnd.classList.remove('error');
-    }
-
-    if (!valid) return;
-
-    const clipData = {
-      url,
-      videoId,
-      startTs: start || '00:00:00',
-      endTs: end,
-      title: '',
-    };
-
-    if (editingId) {
-      QueueStore.update(editingId, clipData);
-      toast('Clip updated.', 'success');
-      // Update engine's live queue
-      PlayerEngine.updateQueue(QueueStore.getAll());
-    } else {
-      QueueStore.add(clipData);
-      toast('Clip added.', 'success');
-    }
-
-    closeModal();
-  });
-
-  // ── Queue rendering ──────────────────────────────────────────────────────────
-  function renderQueue(clips) {
-    const activeIdx = PlayerEngine.getCurrentIdx();
-    const activeClips = PlayerEngine.getClips();
-
-    els.queueEmpty.style.display = clips.length === 0 ? '' : 'none';
-    els.clipList.innerHTML = '';
-
-    clips.forEach((clip, idx) => {
-      // Determine if this clip is the currently playing one
-      // Match by id against the engine's snapshot
-      const engineClip = activeClips[activeIdx];
-      const isActive = engineClip && engineClip.id === clip.id
-        && PlayerEngine.getState() !== 'idle'
-        && PlayerEngine.getState() !== 'done';
-
-      const item = document.createElement('div');
-      item.className = 'clip-item' + (isActive ? ' active-clip' : '');
-      item.dataset.id = clip.id;
-      item.dataset.idx = idx;
-      item.draggable = true;
-
-      const title = clip.title || shortUrl(clip.url);
-      const dur = formatDuration(clip.startTs, clip.endTs);
-
-      item.innerHTML = `
-        <div class="clip-header">
-          <span class="clip-num">${idx + 1}</span>
-          <span class="clip-active-dot"></span>
-          <div class="clip-drag-handle" title="Drag to reorder">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <rect x="3" y="4" width="10" height="1.5" rx="0.75"/>
-              <rect x="3" y="7.25" width="10" height="1.5" rx="0.75"/>
-              <rect x="3" y="10.5" width="10" height="1.5" rx="0.75"/>
-            </svg>
-          </div>
-          <div class="clip-title-area">
-            <div class="clip-video-title">${escHtml(title)}</div>
-            <div class="clip-url-short">${secondsToTs(tsToSeconds(clip.startTs))} → ${secondsToTs(tsToSeconds(clip.endTs))} · ${dur}</div>
-          </div>
-          <span class="clip-ts" title="${escHtml(clip.url)}">${shortVideoId(clip.videoId)}</span>
-        </div>
-        <div class="clip-actions">
-          <button class="btn btn-ghost btn-sm btn-play-clip" data-idx="${idx}" title="Jump to this clip">▶ Play</button>
-          <button class="btn btn-ghost btn-sm btn-edit-clip" data-id="${clip.id}" title="Edit clip">✎ Edit</button>
-          <button class="btn btn-danger btn-sm btn-remove-clip" data-id="${clip.id}" title="Remove">✕</button>
-        </div>
-      `;
-
-      // Drag-and-drop events
-      item.addEventListener('dragstart', e => {
-        dragSrcIdx = idx;
-        e.dataTransfer.effectAllowed = 'move';
-        setTimeout(() => item.classList.add('dragging'), 0);
-      });
-      item.addEventListener('dragend', () => {
-        item.classList.remove('dragging');
-        document.querySelectorAll('.clip-item').forEach(el => el.classList.remove('drag-over'));
-      });
-      item.addEventListener('dragover', e => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        document.querySelectorAll('.clip-item').forEach(el => el.classList.remove('drag-over'));
-        item.classList.add('drag-over');
-      });
-      item.addEventListener('drop', e => {
-        e.preventDefault();
-        if (dragSrcIdx == null || dragSrcIdx === idx) return;
-        QueueStore.reorder(dragSrcIdx, idx);
-        PlayerEngine.updateQueue(QueueStore.getAll());
-        dragSrcIdx = null;
-      });
-
-      // Touch drag for mobile (simple touch reorder)
-      setupTouchDrag(item, idx);
-
-      els.clipList.appendChild(item);
-    });
-
-    // Bind action buttons
-    els.clipList.querySelectorAll('.btn-play-clip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
-        const engineState = PlayerEngine.getState();
-        if (engineState === 'idle' || engineState === 'done') {
-          PlayerEngine.start(QueueStore.getAll());
-          // After start, jump to desired clip
-          setTimeout(() => PlayerEngine.jumpTo(idx), 200);
-        } else {
-          PlayerEngine.jumpTo(idx);
-        }
-        // Switch to player tab
-        document.querySelector('[data-tab="player"]').click();
-      });
-    });
-
-    els.clipList.querySelectorAll('.btn-edit-clip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const clip = QueueStore.get(btn.dataset.id);
-        if (clip) openModal(clip);
-      });
-    });
-
-    els.clipList.querySelectorAll('.btn-remove-clip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        QueueStore.remove(btn.dataset.id);
-        PlayerEngine.updateQueue(QueueStore.getAll());
-        toast('Clip removed.', 'info');
-      });
-    });
-  }
-
-  /** Minimal touch-drag reorder for mobile. */
-  function setupTouchDrag(item, fromIdx) {
-    const handle = item.querySelector('.clip-drag-handle');
-    if (!handle) return;
-    let startY = 0, moving = false;
-    let ghost = null;
-
-    handle.addEventListener('touchstart', e => {
-      startY = e.touches[0].clientY;
-      moving = false;
-    }, { passive: true });
-
-    handle.addEventListener('touchmove', e => {
-      const dy = e.touches[0].clientY - startY;
-      if (Math.abs(dy) > 8) moving = true;
-    }, { passive: true });
-
-    handle.addEventListener('touchend', e => {
-      if (!moving) return;
-      // Simple swap: find clip under touch end point
-      const endY = e.changedTouches[0].clientY;
-      let toIdx = null;
-      document.querySelectorAll('.clip-item').forEach((el, i) => {
-        const rect = el.getBoundingClientRect();
-        if (endY >= rect.top && endY <= rect.bottom) toIdx = i;
-      });
-      if (toIdx != null && toIdx !== fromIdx) {
-        QueueStore.reorder(fromIdx, toIdx);
-        PlayerEngine.updateQueue(QueueStore.getAll());
-      }
-    });
-  }
-
-  // ── Helper display functions ──────────────────────────────────────────────────
-  function shortUrl(url) {
-    try { return new URL(url).hostname + '…'; } catch { return url.slice(0, 30); }
-  }
-  function shortVideoId(vid) { return vid ? vid.slice(0, 8) + '…' : ''; }
-  function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-  function formatDuration(startTs, endTs) {
-    const s = tsToSeconds(startTs), e = tsToSeconds(endTs);
-    if (s == null || e == null) return '?';
-    const d = e - s;
-    return d >= 60 ? `${Math.floor(d/60)}m ${d%60}s` : `${d}s`;
-  }
-
-  // ── Player state handler ─────────────────────────────────────────────────────
-  function handleStateChange({ state, currentIdx, clips }) {
-    const stateLabels = {
-      idle:     ['Idle', ''],
-      loading:  ['Loading…', 'buffering'],
-      seeking:  ['Seeking…', 'buffering'],
-      playing:  ['Playing', 'playing'],
-      paused:   ['Paused', 'paused'],
-      between:  ['Loading next…', 'buffering'],
-      done:     ['Queue complete', ''],
-      error:    ['Error', 'error'],
-    };
-
-    const [label, dotClass] = stateLabels[state] || ['Unknown', ''];
-    els.statusText.textContent = label;
-    els.statusDot.className = 'status-dot' + (dotClass ? ' ' + dotClass : '');
-
-    // Hide overlay whenever we're in any active state — the iframe handles its own UI
-    const idle = state === 'idle' || state === 'done';
-    els.playerOverlay.classList.toggle('hidden', !idle);
-
-    // Controls
-    const inProgress = ['loading','seeking','playing','paused','between'].includes(state);
-    els.btnStart.disabled = inProgress;
-    els.btnPause.disabled = state !== 'playing' && state !== 'paused';
-    els.btnStop.disabled  = !inProgress;
-    els.btnPrev.disabled  = !inProgress || currentIdx <= 0;
-    els.btnNext.disabled  = !inProgress || currentIdx >= clips.length - 1;
-
-    els.btnPause.textContent = state === 'paused' ? '▶ Resume' : '⏸ Pause';
-    els.btnPause.className   = state === 'paused'
-      ? 'btn btn-primary'
-      : 'btn btn-amber';
-
-    if (idle) {
-      els.npTitle.textContent    = '—';
-      els.clipCounter.textContent = '— / —';
-      els.npPosition.textContent  = '00:00:00';
-      els.npRemaining.textContent = '—';
-      els.npEndtime.textContent   = '—';
-      els.clipProgress.style.width = '0%';
-      els.nextUpCard.classList.add('hidden');
-    }
-
-    // Re-render queue to update active clip highlight
-    renderQueue(QueueStore.getAll());
-  }
-
-  // ── Clip change handler ──────────────────────────────────────────────────────
-  function handleClipChange({ idx, clip, clips }) {
-    if (!clip) return;
-
-    const clipTitle = clip.title || shortUrl(clip.url);
-    els.npTitle.textContent    = clipTitle;
-    els.clipCounter.textContent = `${idx + 1} / ${clips.length}`;
-    els.npEndtime.textContent   = clip.endTs || '—';
-
-    // Next clip
-    const next = clips[idx + 1];
-    if (next) {
-      els.nextUpCard.classList.remove('hidden');
-      els.nextUpTitle.textContent = next.title || shortUrl(next.url);
-    } else {
-      els.nextUpCard.classList.add('hidden');
-    }
-
-    // Queue progress bar: which clip of total
-    const pct = clips.length > 1 ? (idx / (clips.length - 1)) * 100 : 100;
-    els.clipProgress.style.width = pct + '%';
-
-    // Fetch video title from oEmbed (best-effort, no-CORS)
-    fetchVideoTitle(clip.videoId).then(title => {
-      if (title) {
-        els.npTitle.textContent = title;
-        QueueStore.update(clip.id, { title });
-      }
-    });
-
-    renderQueue(QueueStore.getAll());
-  }
-
-  // ── Time update handler ──────────────────────────────────────────────────────
-  function handleTimeUpdate({ pos, endSec }) {
-    els.npPosition.textContent = secondsToTs(pos);
-    if (endSec != null) {
-      const rem = Math.max(0, endSec - pos);
-      els.npRemaining.textContent = secondsToTs(rem);
-    }
-  }
-
-  // ── Error handler ────────────────────────────────────────────────────────────
-  function handleError({ message, clip, idx }) {
-    toast(`Clip ${idx != null ? idx + 1 : ''}: ${message}`, 'error', 4000);
-    els.statusText.textContent = 'Error — skipping';
-    els.statusDot.className = 'status-dot error';
-  }
-
-  // ── Playback control buttons ──────────────────────────────────────────────────
-  els.btnStart.addEventListener('click', () => {
-    PlayerEngine.start(QueueStore.getAll());
-  });
-
-  els.btnPause.addEventListener('click', () => {
-    const s = PlayerEngine.getState();
-    if (s === 'paused') PlayerEngine.resume();
-    else PlayerEngine.pause();
-  });
-
-  els.btnStop.addEventListener('click', () => {
-    PlayerEngine.stop();
-  });
-
-  els.btnPrev.addEventListener('click', () => PlayerEngine.prev());
-  els.btnNext.addEventListener('click', () => PlayerEngine.next());
-
-  // ── Queue toolbar ────────────────────────────────────────────────────────────
-  $('btn-clear-queue').addEventListener('click', () => {
-    if (QueueStore.count() === 0) return;
-    if (confirm('Clear all clips from the queue?')) {
-      QueueStore.clear();
-      PlayerEngine.stop();
-      toast('Queue cleared.', 'info');
-    }
-  });
-
-  // ── Import / Export ──────────────────────────────────────────────────────────
-  $('btn-export').addEventListener('click', () => {
-    if (QueueStore.count() === 0) { toast('Queue is empty — nothing to export.', 'error'); return; }
-    const json = QueueStore.exportJSON();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `clipq-queue-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('Queue exported.', 'success');
-  });
-
-  // ── Paste JSON modal ─────────────────────────────────────────────────────────
-  const pasteModal   = $('paste-modal');
-  const pasteInput   = $('paste-input');
-  const pasteErr     = $('err-paste');
-
-  function openPasteModal() {
-    pasteInput.value = '';
-    pasteErr.style.display = 'none';
-    pasteErr.textContent = '';
-    pasteModal.classList.add('open');
-    setTimeout(() => pasteInput.focus(), 350);
-  }
-
-  function closePasteModal() {
-    pasteModal.classList.remove('open');
-  }
-
-  function importFromText(raw) {
-    const text = raw.trim();
-    if (!text) {
-      pasteErr.textContent = 'Nothing to import — field is empty.';
-      pasteErr.style.display = 'block';
-      return false;
-    }
-    try {
-      const data = JSON.parse(text);
-      if (!Array.isArray(data)) throw new Error('Expected a JSON array [ ... ]');
-      if (data.length === 0) throw new Error('Array is empty — no clips to import.');
-      QueueStore.import(data);
-      toast(`Imported ${data.length} clip(s).`, 'success');
-      closePasteModal();
-      return true;
-    } catch (e) {
-      pasteErr.textContent = `Invalid JSON: ${e.message}`;
-      pasteErr.style.display = 'block';
-      return false;
-    }
-  }
-
-  $('btn-paste-json').addEventListener('click', openPasteModal);
-  pasteModal.addEventListener('click', e => { if (e.target === pasteModal) closePasteModal(); });
-  $('btn-paste-cancel').addEventListener('click', closePasteModal);
-  $('btn-paste-clear-field').addEventListener('click', () => {
-    pasteInput.value = '';
-    pasteErr.style.display = 'none';
-    pasteInput.focus();
-  });
-  $('btn-paste-load').addEventListener('click', () => importFromText(pasteInput.value));
-
-  // ── File import ──────────────────────────────────────────────────────────────
-  $('btn-import').addEventListener('click', () => els.importInput.click());
-
-  els.importInput.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!Array.isArray(data)) throw new Error('Not an array');
-        QueueStore.import(data);
-        toast(`Imported ${data.length} clip(s).`, 'success');
-      } catch {
-        toast('Import failed: invalid JSON file.', 'error');
-      }
-      els.importInput.value = '';
-    };
-    reader.readAsText(file);
-  });
-
-  // ── Settings ─────────────────────────────────────────────────────────────────
-  function bindSetting(elId, key) {
-    const el = $(elId);
-    el.checked = SettingsStore.get(key);
-    el.addEventListener('change', () => SettingsStore.set(key, el.checked));
-  }
-  bindSetting('setting-fullscreen',   'autoFullscreen');
-  bindSetting('setting-pause-between','pauseBetween');
-  bindSetting('setting-loop',         'loopQueue');
-
-  $('btn-clear-storage').addEventListener('click', () => {
-    if (confirm('This will clear all saved clips. Are you sure?')) {
-      QueueStore.clear();
-      PlayerEngine.stop();
-      toast('Storage cleared.', 'info');
-    }
-  });
-
-  // ── Fetch YouTube title via oEmbed (no API key needed, may fail on some) ────
-  const titleCache = {};
-  async function fetchVideoTitle(videoId) {
-    if (!videoId) return null;
-    if (titleCache[videoId]) return titleCache[videoId];
-    try {
-      const url = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data.title) { titleCache[videoId] = data.title; return data.title; }
-    } catch {}
-    return null;
-  }
-
-  // ── Hydrate stored clips with titles on load ──────────────────────────────────
-  async function hydrateQueueTitles() {
-    const clips = QueueStore.getAll();
-    for (const clip of clips) {
-      if (!clip.title && clip.videoId) {
-        const title = await fetchVideoTitle(clip.videoId);
-        if (title) QueueStore.update(clip.id, { title });
-      }
-    }
-  }
-
-  // ── Public init ──────────────────────────────────────────────────────────────
-  return {
-    init() {
-      QueueStore.subscribe(clips => renderQueue(clips));
-      PlayerEngine.on('StateChange', handleStateChange);
-      PlayerEngine.on('ClipChange',  handleClipChange);
-      PlayerEngine.on('TimeUpdate',  handleTimeUpdate);
-      PlayerEngine.on('Error',       handleError);
-
-      // Initial idle state render
-      handleStateChange({ state: 'idle', currentIdx: -1, clips: [] });
-
-      hydrateQueueTitles();
-    }
-  };
-})();
-
-
-// ─── YOUTUBE IFRAME API BOOTSTRAP ────────────────────────────────────────────
-
-/**
- * Called automatically by the YouTube IFrame API when it's ready.
- * We define it globally before loading the script.
- */
-window.onYouTubeIframeAPIReady = function() {
-  PlayerEngine.initPlayer('yt-player');
-};
-
-// ─── APP INIT ────────────────────────────────────────────────────────────────
-
-(function init() {
-  QueueStore.init();
-  SettingsStore.init();
-  UI.init();
-
-  // Load the YouTube IFrame API script dynamically
-  const tag = document.createElement('script');
-  tag.src = 'https://www.youtube.com/iframe_api';
-  tag.async = true;
-  tag.onerror = () => toast('Failed to load YouTube API. Check your connection.', 'error', 6000);
-  document.head.appendChild(tag);
-})();
-</script>
+  // ─── APP INIT ────────────────────────────────────────────────────────────────
+  (function init() {
+    QueueStore.init();
+    SettingsStore.init();
+    UI.init();
+
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  })();
+
+  </script>
 </body>
 </html>
