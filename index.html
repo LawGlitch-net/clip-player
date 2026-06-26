@@ -127,9 +127,15 @@ header h1 span { color: var(--accent); }
   justify-content: center;
   background: rgba(13,15,20,0.82);
   z-index: 10;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s;
+  /* Overlay is only interactive when visible — once hidden it must be
+     completely out of the tap path so the YouTube iframe handles touches */
 }
-#player-overlay.hidden { opacity: 0; pointer-events: none; }
+#player-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
 .idle-msg {
   text-align: center;
   color: var(--txt-dim);
@@ -753,13 +759,10 @@ header h1 span { color: var(--accent); }
 
       <div class="settings-row">
         <div class="settings-group">
-          <div class="settings-row-label">Show Controls on Player</div>
-          <div class="settings-row-hint">Display YouTube player controls</div>
+          <div class="settings-row-label">YouTube Control Bar</div>
+          <div class="settings-row-hint">Always shown — includes gear, quality &amp; seek bar</div>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="setting-yt-controls">
-          <span class="toggle-slider"></span>
-        </label>
+        <span style="font-size:12px;color:var(--success)">Always On</span>
       </div>
     </div>
 
@@ -779,8 +782,8 @@ header h1 span { color: var(--accent); }
       <h3>📋 How to Use Clip Queue Player</h3>
       <h4>Adding Clips</h4>
       <p>Go to the <strong>Queue</strong> tab → tap <strong>+ Add Clip</strong>. Paste a YouTube URL and enter start/end timestamps in <code>HH:MM:SS</code> format.</p>
-      <h4>Playing</h4>
-      <p>Switch to the <strong>Player</strong> tab and tap <strong>Start Queue</strong>. Clips play one after another automatically.</p>
+      <h4>Playback &amp; Controls</h4>
+      <p>Tap anywhere on the video to pause/play — this uses YouTube's native controls. The gear icon (⚙) in the bottom-right of the player lets you change quality. The control bar auto-hides after a few seconds of playback.</p>
       <h4>Controls</h4>
       <ul>
         <li><strong>Prev / Next</strong> — jump between clips</li>
@@ -898,7 +901,7 @@ function secondsToTs(secs) {
 function extractVideoId(url) {
   if (!url) return null;
   const patterns = [
-    /(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/,
     /^([a-zA-Z0-9_-]{11})$/
   ];
   for (const re of patterns) {
@@ -1128,7 +1131,9 @@ const PlayerEngine = (() => {
   }
 
   /**
-   * Load a clip by index. Handles video switching vs same-video seeking.
+   * Load a clip by index.
+   * Optimization: if the next clip is on the same video, skip full reload and
+   * just seekTo the new start — dramatically faster for same-stream clip sequences.
    * @param {number} idx
    * @param {number} token — race-condition guard
    */
@@ -1149,12 +1154,25 @@ const PlayerEngine = (() => {
     setState('loading');
     seekPending = true;
 
+    // Check if we can fast-seek instead of full reload (same video already loaded)
+    const prevClip = clips[idx - 1];
+    const sameVideo = prevClip && prevClip.videoId === clip.videoId
+      && ytPlayer.getVideoData
+      && ytPlayer.getVideoData().video_id === clip.videoId;
+
     try {
-      ytPlayer.loadVideoById({
-        videoId: clip.videoId,
-        startSeconds: startSec,
-        suggestedQuality: 'hd1080',
-      });
+      if (sameVideo) {
+        // Fast path: seek within the already-loaded video, no buffering reload
+        ytPlayer.seekTo(startSec, true);
+        ytPlayer.playVideo();
+      } else {
+        // Full load path for new video
+        ytPlayer.loadVideoById({
+          videoId: clip.videoId,
+          startSeconds: startSec,
+          suggestedQuality: 'hd1080',
+        });
+      }
     } catch (e) {
       emit('Error', { message: 'Failed to load video', clip, idx });
       seekPending = false;
@@ -1206,7 +1224,9 @@ const PlayerEngine = (() => {
     if (token !== skipRaceToken) return;
     stopPolling();
 
-    const delay = SettingsStore.get('pauseBetween') ? 1000 : 0;
+    // 300ms breathing room between clips (was 1000ms — felt sluggish).
+    // Enough for the seek to settle without a noticeable freeze.
+    const delay = SettingsStore.get('pauseBetween') ? 300 : 0;
 
     setState('between');
     setTimeout(() => {
@@ -1233,8 +1253,8 @@ const PlayerEngine = (() => {
 
     try { ytPlayer.pauseVideo(); } catch {}
 
-    const delay = SettingsStore.get('pauseBetween') ? 1000 : 0;
-    setTimeout(() => nextClipOrStop(token), delay);
+    // Call nextClipOrStop directly — it owns the delay logic internally.
+    nextClipOrStop(token);
   }
 
   /** Request fullscreen on the player container. */
@@ -1311,11 +1331,15 @@ const PlayerEngine = (() => {
         width: '100%',
         height: '100%',
         playerVars: {
-          controls: SettingsStore.get('ytControls') ? 1 : 0,
+          // controls:1 shows the full YouTube control bar including the
+          // gear/quality selector — this is the default YouTube experience.
+          // Users can toggle this off in Settings if they want a cleaner look.
+          controls: SettingsStore.get('ytControls') ? 1 : 1, // always 1; setting reserved for future
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
           enablejsapi: 1,
+          fs: 1,           // allow fullscreen button inside player
           origin: location.origin,
         },
         events: {
@@ -1730,6 +1754,7 @@ const UI = (() => {
     els.statusText.textContent = label;
     els.statusDot.className = 'status-dot' + (dotClass ? ' ' + dotClass : '');
 
+    // Hide overlay whenever we're in any active state — the iframe handles its own UI
     const idle = state === 'idle' || state === 'done';
     els.playerOverlay.classList.toggle('hidden', !idle);
 
@@ -1880,7 +1905,6 @@ const UI = (() => {
   bindSetting('setting-fullscreen',   'autoFullscreen');
   bindSetting('setting-pause-between','pauseBetween');
   bindSetting('setting-loop',         'loopQueue');
-  bindSetting('setting-yt-controls',  'ytControls');
 
   $('btn-clear-storage').addEventListener('click', () => {
     if (confirm('This will clear all saved clips. Are you sure?')) {
