@@ -175,10 +175,12 @@ header h1 span { color: var(--accent); }
   gap: 0;
   background: transparent;
   pointer-events: all;
-  transition: background 0.2s;
+  touch-action: manipulation;
+  transition: background 0.2s, opacity 0.2s;
 }
 #playback-overlay.hidden {
-  display: none;
+  opacity: 0;
+  visibility: visible;
 }
 
 /* Prev/Next row inside the playback overlay */
@@ -1264,7 +1266,7 @@ const PlayerEngine = (() => {
     const clip = clips[idx];
     if (!clip) { setState('done'); return; }
 
-    const startSec = tsToSeconds(clip.startTs);
+    const startSec = getEffectiveStartSeconds(clip);
     if (startSec == null) {
       emit('Error', { message: 'Invalid start timestamp', clip, idx });
       nextClipOrStop(token);
@@ -1285,12 +1287,13 @@ const PlayerEngine = (() => {
         // Fast path: seek within the already-loaded video, no buffering reload
         ytPlayer.seekTo(startSec, true);
         ytPlayer.playVideo();
+        chooseBestQuality();
       } else {
         // Full load path for new video
         ytPlayer.loadVideoById({
           videoId: clip.videoId,
           startSeconds: startSec,
-          suggestedQuality: 'hd1080',
+          suggestedQuality: 'highres',
         });
       }
     } catch (e) {
@@ -1309,11 +1312,12 @@ const PlayerEngine = (() => {
     const clip = currentClip();
     if (!clip) return;
 
-    const startSec = tsToSeconds(clip.startTs);
+    const effectiveStartSec = getEffectiveStartSeconds(clip);
+    const originalStartSec = tsToSeconds(clip.startTs);
     const endSec = tsToSeconds(clip.endTs);
 
     // Validate end > start
-    if (endSec != null && startSec != null && endSec <= startSec) {
+    if (endSec != null && originalStartSec != null && endSec <= originalStartSec) {
       emit('Error', { message: 'End time must be after start time', clip, idx: currentIdx });
       nextClipOrStop(token);
       return;
@@ -1321,14 +1325,15 @@ const PlayerEngine = (() => {
 
     try {
       const pos = ytPlayer.getCurrentTime();
-      // If more than 2s off, seek again
-      if (Math.abs(pos - startSec) > 2) {
-        ytPlayer.seekTo(startSec, true);
+      // If more than 2s off, seek again to the effective start time
+      if (Math.abs(pos - effectiveStartSec) > 2) {
+        ytPlayer.seekTo(effectiveStartSec, true);
       }
     } catch {}
 
     seekPending = false;
     setState('playing');
+    chooseBestQuality();
     startPolling();
 
     emit('ClipChange', { idx: currentIdx, clip, clips });
@@ -1387,6 +1392,22 @@ const PlayerEngine = (() => {
     } catch {}
   }
 
+  function chooseBestQuality() {
+    if (!ytPlayer || !ytReady || typeof ytPlayer.getAvailableQualityLevels !== 'function') return;
+    const levels = ytPlayer.getAvailableQualityLevels() || [];
+    if (!levels.length) return;
+    const preferred = ['highres','hd2160','hd1440','hd1080','hd720','large','medium','small'];
+    const quality = preferred.find(q => levels.includes(q)) || levels[0];
+    try { ytPlayer.setPlaybackQuality(quality); } catch {}
+    try { ytPlayer.setPlaybackQualityRange(quality); } catch {}
+  }
+
+  function getEffectiveStartSeconds(clip) {
+    const startSec = tsToSeconds(clip?.startTs);
+    if (startSec == null || startSec <= 0) return 0;
+    return Math.max(startSec - 7, 0);
+  }
+
   /** YouTube IFrame API event: player state changed. */
   function onYTStateChange(event) {
     const YT = window.YT;
@@ -1397,6 +1418,7 @@ const PlayerEngine = (() => {
         if (seekPending) {
           verifyAndPlay(skipRaceToken);
         }
+        chooseBestQuality();
         break;
 
       case YT.PlayerState.ENDED:
