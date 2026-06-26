@@ -619,7 +619,8 @@ header h1 span { color: var(--accent); }
     <h1>Clip<span>Q</span></h1>
     <div class="header-actions">
       <button class="btn btn-ghost btn-sm" id="btn-export" title="Export queue">⬆ Export</button>
-      <button class="btn btn-ghost btn-sm" id="btn-import" title="Import queue">⬇ Import</button>
+      <button class="btn btn-ghost btn-sm" id="btn-paste-json" title="Paste JSON">⬇ Paste JSON</button>
+      <button class="btn btn-ghost btn-sm" id="btn-import" title="Import from file">⬇ File</button>
       <input type="file" id="import-input" accept=".json">
     </div>
   </header>
@@ -843,7 +844,33 @@ header h1 span { color: var(--accent); }
   </div>
 </div>
 
-<!-- Toast container -->
+<!-- ═══════════════════════════════════ PASTE JSON MODAL ═══════════════════════════════════ -->
+<div class="modal-backdrop" id="paste-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Paste JSON</div>
+
+    <div class="form-group">
+      <label class="form-label" for="paste-input">Queue JSON</label>
+      <textarea class="form-input" id="paste-input"
+        rows="10"
+        placeholder='[&#10;  { "url": "...", "startTs": "00:00:00", "endTs": "00:00:10" },&#10;  ...&#10;]'
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        style="resize:vertical; font-family:var(--font-mono); font-size:12px; line-height:1.5;"></textarea>
+      <div class="form-hint">Paste a JSON array of clip objects directly — no file needed.</div>
+      <div class="form-error" id="err-paste" style="display:none"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-paste-cancel">Cancel</button>
+      <button class="btn btn-secondary" id="btn-paste-clear-field" title="Clear the text area">✕ Clear</button>
+      <button class="btn btn-primary" id="btn-paste-load">Load Clips</button>
+    </div>
+  </div>
+</div>
 <div id="toast-container"></div>
 
 <script>
@@ -1876,6 +1903,56 @@ const UI = (() => {
     toast('Queue exported.', 'success');
   });
 
+  // ── Paste JSON modal ─────────────────────────────────────────────────────────
+  const pasteModal   = $('paste-modal');
+  const pasteInput   = $('paste-input');
+  const pasteErr     = $('err-paste');
+
+  function openPasteModal() {
+    pasteInput.value = '';
+    pasteErr.style.display = 'none';
+    pasteErr.textContent = '';
+    pasteModal.classList.add('open');
+    setTimeout(() => pasteInput.focus(), 350);
+  }
+
+  function closePasteModal() {
+    pasteModal.classList.remove('open');
+  }
+
+  function importFromText(raw) {
+    const text = raw.trim();
+    if (!text) {
+      pasteErr.textContent = 'Nothing to import — field is empty.';
+      pasteErr.style.display = 'block';
+      return false;
+    }
+    try {
+      const data = JSON.parse(text);
+      if (!Array.isArray(data)) throw new Error('Expected a JSON array [ ... ]');
+      if (data.length === 0) throw new Error('Array is empty — no clips to import.');
+      QueueStore.import(data);
+      toast(`Imported ${data.length} clip(s).`, 'success');
+      closePasteModal();
+      return true;
+    } catch (e) {
+      pasteErr.textContent = `Invalid JSON: ${e.message}`;
+      pasteErr.style.display = 'block';
+      return false;
+    }
+  }
+
+  $('btn-paste-json').addEventListener('click', openPasteModal);
+  pasteModal.addEventListener('click', e => { if (e.target === pasteModal) closePasteModal(); });
+  $('btn-paste-cancel').addEventListener('click', closePasteModal);
+  $('btn-paste-clear-field').addEventListener('click', () => {
+    pasteInput.value = '';
+    pasteErr.style.display = 'none';
+    pasteInput.focus();
+  });
+  $('btn-paste-load').addEventListener('click', () => importFromText(pasteInput.value));
+
+  // ── File import ──────────────────────────────────────────────────────────────
   $('btn-import').addEventListener('click', () => els.importInput.click());
 
   els.importInput.addEventListener('change', e => {
