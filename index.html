@@ -118,7 +118,18 @@ header h1 span { color: var(--accent); }
   margin-bottom: 14px;
   aspect-ratio: 16/9;
 }
-#yt-player { width: 100%; height: 100%; display: block; }
+/* The iframe is sized slightly TALLER than the container so the YouTube
+   control bar (which appears at the very bottom of the iframe) is
+   clipped out of view — even when controls:0 still flickers briefly on seek. */
+#yt-player {
+  width: 100%;
+  height: calc(100% + 48px);
+  display: block;
+  margin-top: -0px;
+  pointer-events: none; /* all taps are handled by our custom overlays */
+}
+
+/* ── IDLE OVERLAY (shown only before playback starts / after queue done) ── */
 #player-overlay {
   position: absolute;
   inset: 0;
@@ -128,8 +139,6 @@ header h1 span { color: var(--accent); }
   background: rgba(13,15,20,0.82);
   z-index: 10;
   transition: opacity 0.2s;
-  /* Overlay is only interactive when visible — once hidden it must be
-     completely out of the tap path so the YouTube iframe handles touches */
 }
 #player-overlay.hidden {
   opacity: 0;
@@ -143,6 +152,88 @@ header h1 span { color: var(--accent); }
 }
 .idle-msg svg { margin-bottom: 12px; opacity: 0.4; }
 .idle-msg p { font-size: 14px; }
+
+/* ── PLAYBACK TOUCH OVERLAY ──────────────────────────────────────────────
+   Sits above the iframe at all times during an active queue.
+   While PLAYING   → fully transparent, pointer-events:none  (invisible, non-blocking)
+   While PAUSED    → dim scrim + Prev/Resume/Next buttons appear
+   This ensures the YouTube iframe never receives any direct touch events,
+   so its own control bar (play button, seek bar, gear) NEVER shows up.
+─────────────────────────────────────────────────────────────────────── */
+#playback-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: transparent;
+  pointer-events: none; /* playing state: completely transparent to touches */
+  transition: background 0.2s;
+}
+#playback-overlay.paused {
+  background: rgba(13,15,20,0.60);
+  pointer-events: all; /* paused state: capture all taps */
+}
+#playback-overlay.hidden {
+  display: none;
+}
+
+/* Prev/Resume/Next row inside the playback overlay */
+.po-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  opacity: 0;
+  transform: scale(0.88);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+#playback-overlay.paused .po-controls {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
+}
+.po-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.po-btn:active { background: rgba(255,255,255,0.25); transform: scale(0.92); }
+.po-btn.po-resume {
+  width: 72px; height: 72px;
+  font-size: 28px;
+  background: var(--accent);
+  color: #000;
+}
+.po-btn.po-resume:active { background: var(--accent2); }
+.po-btn:disabled { opacity: 0.3; pointer-events: none; }
+
+/* Clip counter shown in the pause overlay */
+.po-counter {
+  margin-top: 18px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.5);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+#playback-overlay.paused .po-counter { opacity: 1; }
 
 /* ── CLIP PROGRESS BAR (tape reel) ── */
 .clip-progress-track {
@@ -637,6 +728,8 @@ header h1 span { color: var(--accent); }
     <!-- YouTube Player -->
     <div id="player-container">
       <div id="yt-player"></div>
+
+      <!-- Idle overlay: shown before queue starts and after it ends -->
       <div id="player-overlay">
         <div class="idle-msg">
           <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
@@ -645,6 +738,17 @@ header h1 span { color: var(--accent); }
           </svg>
           <p>Add clips to the queue,<br>then tap <strong>Start Queue</strong></p>
         </div>
+      </div>
+
+      <!-- Playback overlay: transparent while playing, shows controls when paused.
+           Always intercepts touches so the YouTube iframe control bar never appears. -->
+      <div id="playback-overlay" class="hidden">
+        <div class="po-controls">
+          <button class="po-btn po-prev" id="po-btn-prev" title="Previous clip">⏮</button>
+          <button class="po-btn po-resume" id="po-btn-resume" title="Resume">▶</button>
+          <button class="po-btn po-next" id="po-btn-next" title="Next clip">⏭</button>
+        </div>
+        <div class="po-counter" id="po-counter"></div>
       </div>
     </div>
 
@@ -1358,16 +1462,15 @@ const PlayerEngine = (() => {
         width: '100%',
         height: '100%',
         playerVars: {
-          // controls:1 shows the full YouTube control bar including the
-          // gear/quality selector — this is the default YouTube experience.
-          // Users can toggle this off in Settings if they want a cleaner look.
-          controls: SettingsStore.get('ytControls') ? 1 : 1, // always 1; setting reserved for future
+          controls: 0,      // hide YouTube control bar entirely — our overlay handles all UI
+          disablekb: 1,     // disable keyboard shortcuts that can trigger YT overlays
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
           enablejsapi: 1,
-          fs: 1,           // allow fullscreen button inside player
           origin: location.origin,
+          iv_load_policy: 3, // hide video annotations
+          cc_load_policy: 0, // hide captions by default
         },
         events: {
           onReady: () => { ytReady = true; },
@@ -1472,6 +1575,11 @@ const UI = (() => {
   const $ = id => document.getElementById(id);
   const els = {
     playerOverlay:  $('player-overlay'),
+    playbackOverlay:$('playback-overlay'),
+    poCounter:      $('po-counter'),
+    poBtnPrev:      $('po-btn-prev'),
+    poBtnResume:    $('po-btn-resume'),
+    poBtnNext:      $('po-btn-next'),
     clipProgress:   $('clip-progress'),
     statusDot:      $('status-dot'),
     statusText:     $('status-text'),
